@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty_state with context %}
+{% block title %}Breach Catalogue — {{ APP_NAME }}{% endblock %}
+{% block page_title %}📚 Breach Catalogue{% endblock %}
+{% block page_sub %}{{ stats.breach_count }} publicly reported breaches · {{ stats.total_accounts_human }} accounts affected{% endblock %}
+{% block topbar_extra %}
+<a href="{{ url_for('breach_page') }}" class="btn btn-ghost btn-sm">← Breach Checker</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="card-head">
+    <div class="card-title">🔍 Search the Catalogue</div>
+    <form method="get" class="flex">
+      <input type="search" name="q" value="{{ q }}" style="width:260px"
+             placeholder="Company, domain, data type, category…">
+      <button class="btn btn-ghost btn-sm">Search</button>
+      {% if q %}<a href="{{ url_for('breach_catalog_page') }}" class="btn btn-ghost btn-sm">Clear</a>{% endif %}
+    </form>
+  </div>
+  <div class="chips">
+    <span class="dim xs" style="align-self:center">Quick filters:</span>
+    {% for term in ['Passwords','Credit cards','Social security numbers','Government issued IDs',
+                    'Physical addresses','Phone numbers','Medical conditions',
+                    'finance','health','social','ecommerce','gaming','dating','India'] %}
+    <a href="{{ url_for('breach_catalog_page', q=term) }}" class="chip">{{ term }}</a>
+    {% endfor %}
+  </div>
+  <div class="dim xs mt-s">
+    Showing {{ breaches|length }} result(s){% if q %} for "{{ q }}"{% endif %}.
+    Source: <b>{{ stats.source }}</b> · last updated {{ stats.last_updated }}
+    · {{ '{:,}'.format(stats.breach_count) }} breaches / {{ stats.total_accounts_human }} accounts.
+  </div>
+</div>
+
+{% if breaches %}
+<div class="card">
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>Breach</th><th>Year</th><th>Accounts</th><th>Severity</th>
+      <th>Data exposed</th><th></th></tr></thead>
+    <tbody>
+    {% for b in breaches %}
+    <tr>
+      <td>
+        <b>{{ b.name }}</b>
+        {% if b.stealer_log %}{{ badge('critical','stealer log') }}{% endif %}
+        {% if b.sensitive %}{{ badge('high','sensitive') }}{% endif %}
+        {% if b.fabricated %}{{ badge('info','fabricated') }}{% endif %}
+        {% if b.verified is defined and not b.verified %}{{ badge('info','unverified') }}{% endif %}
+        {% if b.spam_list %}{{ badge('info','spam list') }}{% endif %}
+        {% if b.disputed %}{{ badge('info','disputed') }}{% endif %}
+        {% if b.region %}{{ badge('info', b.region) }}{% endif %}
+        <div class="dim xs mono">{{ b.domain }}</div>
+      </td>
+      <td class="mono">{{ b.year }}</td>
+      <td class="mono nowrap">{{ '{:,}'.format(b.accounts) if b.accounts else '—' }}</td>
+      <td>{{ badge(b.severity) }}</td>
+      <td style="max-width:320px">
+        <div class="chips">
+          {% for d in b.data[:4] %}<span class="chip">{{ d }}</span>{% endfor %}
+          {% if b.data|length > 4 %}<span class="chip dim">+{{ b.data|length - 4 }}</span>{% endif %}
+        </div>
+      </td>
+      <td class="nowrap">
+        <button class="btn btn-ghost btn-xs" onclick="toggleDetail(this)">Details</button>
+      </td>
+    </tr>
+    <tr class="hidden detail-row">
+      <td colspan="6" style="background:var(--bg2)">
+        <div class="small mb">{{ b.desc }}</div>
+        <div class="chips mb">
+          <span class="chip on">Category: {{ b.category }}</span>
+          {% for d in b.data %}<span class="chip">{{ d }}</span>{% endfor %}
+        </div>
+        <button class="btn btn-ghost btn-xs" onclick="explainBreach('{{ b.name|e }}', this)">
+          🤖 Explain this breach</button>
+        <div class="explain-slot"></div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% else %}
+  {{ empty_state('🔍','No breaches matched','Try a different search term, or clear the filter.') }}
+{% endif %}
+
+<div class="alert alert-info">
+  <span>📌</span>
+  <div><b>About this data.</b> Figures are the widely reported account or record counts from
+  public disclosures and journalism. Some are approximate, and entries marked
+  <b>disputed</b> were denied or contested by the organisation involved. This is an offline
+  reference catalogue for education, not a live threat feed.</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleDetail(btn){
+  const row = btn.closest('tr').nextElementSibling;
+  row.classList.toggle('hidden');
+  btn.textContent = row.classList.contains('hidden') ? 'Details' : 'Hide';
+}
+async function explainBreach(name, btn){
+  const slot = btn.parentElement.querySelector('.explain-slot');
+  slot.innerHTML = '<div class="alert alert-info mt-s"><span class="spin"></span><div>Asking the local model…</div></div>';
+  const r = await postJSON('/api/breach/explain', {name: name});
+  if (r.error || !r.ai_explanation) {
+    slot.innerHTML = '<div class="alert alert-warn mt-s"><span>🤖</span><div>AI unavailable — start Ollama to generate breach explanations.</div></div>';
+    return;
+  }
+  slot.innerHTML = '<div class="ai-box" style="margin-top:10px"><div class="ai-head">🤖 ' + name +
+    '</div><div class="ai-body">' + mdToHtml(r.ai_explanation) + '</div></div>';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+Delivered-To: priya.n@corp.local
+Received: from mail-relay-07.bulkmailsend.ru (203.0.113.88)
+Authentication-Results: mx.corp.local;
+       spf=fail (domain of hdfcbank.com does not designate 203.0.113.88 as permitted sender);
+       dkim=fail header.d=hdfcbank.com;
+       dmarc=fail (p=REJECT) header.from=hdfcbank.com
+From: "HDFC Bank Security Team" <alerts@hdfcbank.com>
+Reply-To: recovery.desk909@gmail.com
+To: priya.n@corp.local
+Subject: URGENT: Unauthorized transaction detected - Account will be SUSPENDED in 24 hours
+Date: Sat, 15 Mar 2026 02:41:09 +0530
+X-Mailer: PHPMailer 5.2.9
+Content-Type: text/html; charset=UTF-8
+
+Dear Customer,
+
+We have detected an UNAUTHORIZED TRANSACTION of Rs. 49,999.00 on your account
+ending 4421 from an unrecognised device.
+
+Your account has been temporarily restricted. To reverse this transaction and
+restore full access, you must verify your identity IMMEDIATELY.
+
+<a href="http://hdfc-secure-verify.tk/login.php?ref=88213">https://www.hdfcbank.com/secure/verify</a>
+
+You will need to provide:
+  - Registered mobile number
+  - Debit card number and expiry date
+  - CVV number
+  - OTP received on your mobile
+  - Net banking password
+
+FAILURE TO COMPLETE VERIFICATION WITHIN 24 HOURS WILL RESULT IN PERMANENT
+ACCOUNT CLOSURE AND LEGAL ACTION AS PER RBI GUIDELINES.
+
+Kindly do the needful immediatly.
+
+Yours faithfuly,
+HDFC Bank Security Team
+Attachment: Transaction_Details_March.pdf.exe

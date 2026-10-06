@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}{{ APP_NAME }}{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div>
+        <div class="brand-title">🛡️ AI Cyber Safety &amp;<br>Digital Forensics</div>
+        <div class="brand-tag">{{ APP_TAGLINE }}</div>
+      </div>
+      <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation menu"
+              aria-expanded="false">☰</button>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint=='dashboard' }}"><span class="ico">📊</span> Dashboard</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Protect &amp; Detect</div>
+        <a href="{{ url_for('phishing_page') }}" class="{{ 'active' if request.endpoint=='phishing_page' }}"><span class="ico">🛡️</span> Phishing Detector</a>
+        <a href="{{ url_for('password_page') }}" class="{{ 'active' if request.endpoint=='password_page' }}"><span class="ico">🔐</span> Password Analyzer</a>
+        <a href="{{ url_for('malware_page') }}" class="{{ 'active' if request.endpoint=='malware_page' }}"><span class="ico">🦠</span> Malware Analyzer</a>
+        <a href="{{ url_for('breach_page') }}" class="{{ 'active' if request.endpoint in ('breach_page','breach_catalog_page') }}"><span class="ico">💧</span> Breach Checker</a>
+        <a href="{{ url_for('toolkit_page') }}" class="{{ 'active' if request.endpoint=='toolkit_page' }}"><span class="ico">🧰</span> Daily Toolkit</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Investigate</div>
+        <a href="{{ url_for('cases_page') }}" class="{{ 'active' if request.endpoint in ('cases_page','case_detail') }}"><span class="ico">📁</span> Cases</a>
+        <a href="{{ url_for('evidence_page') }}" class="{{ 'active' if request.endpoint in ('evidence_page','evidence_detail') }}"><span class="ico">🗂️</span> Evidence Vault</a>
+        <a href="{{ url_for('browser_page') }}" class="{{ 'active' if request.endpoint=='browser_page' }}"><span class="ico">🌐</span> Browser Forensics</a>
+        <a href="{{ url_for('memory_page') }}" class="{{ 'active' if request.endpoint=='memory_page' }}"><span class="ico">🧠</span> Memory Forensics</a>
+        <a href="{{ url_for('logs_page') }}" class="{{ 'active' if request.endpoint=='logs_page' }}"><span class="ico">📜</span> Log Analysis</a>
+        <a href="{{ url_for('reports_page') }}" class="{{ 'active' if request.endpoint=='reports_page' }}"><span class="ico">📄</span> Reports</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Learn</div>
+        <a href="{{ url_for('assistant_page') }}" class="{{ 'active' if request.endpoint=='assistant_page' }}"><span class="ico">🤖</span> AI Cyber Assistant</a>
+        <a href="{{ url_for('learn_page') }}" class="{{ 'active' if request.endpoint in ('learn_page','quiz_page','lab_page','simulator_page') }}"><span class="ico">📚</span> Learning Center</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">System</div>
+        <a href="{{ url_for('history_page') }}" class="{{ 'active' if request.endpoint in ('history_page','history_detail') }}"><span class="ico">🕐</span> Scan History</a>
+        <a href="{{ url_for('settings_page') }}" class="{{ 'active' if request.endpoint=='settings_page' }}"><span class="ico">⚙️</span> Settings</a>
+        <a href="{{ url_for('help_page') }}" class="{{ 'active' if request.endpoint=='help_page' }}"><span class="ico">❓</span> Help &amp; Guide</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="page-title">{% block page_title %}Dashboard{% endblock %}</div>
+        <div class="page-sub">{% block page_sub %}{% endblock %}</div>
+      </div>
+      <div class="flex">
+        {% block topbar_extra %}{% endblock %}
+        <span class="ai-pill {{ 'ai-on' if ollama_online else 'ai-off' }}" id="aiPill"
+              title="{{ ollama_host }}">
+          <span class="dot"></span>
+          {% if ollama_online %}AI Online · {{ ollama_model }}{% else %}AI Offline{% endif %}
+        </span>
+      </div>
+    </header>
+
+    <main class="content">
+      {% if not ollama_online and request.endpoint != 'settings_page' %}
+      <div class="alert alert-warn">
+        <span>⚠️</span>
+        <div><b>Local AI (Ollama) is not running.</b> Every rule-based engine still works at full
+        strength — only the AI commentary is unavailable. To enable it:
+        <code>ollama serve</code> then <code>ollama pull llama3.2</code>.
+        <a href="{{ url_for('settings_page') }}">Open settings →</a></div>
+      </div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

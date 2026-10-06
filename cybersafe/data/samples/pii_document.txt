@@ -1,0 +1,44 @@
+INTERNAL SUPPORT TICKET #SR-2026-88421
+=======================================
+Reported by: Rahul Sharma
+Employee ID: EMP-4471
+Department: Finance
+
+CUSTOMER DETAILS (as provided by caller)
+----------------------------------------
+Name           : Priya Nair
+Aadhaar Number : 4521 8834 9012
+PAN Card       : ABCPS1234K
+Date of Birth  : 14/07/1998
+Mobile         : +91 98765 43210
+Alt Mobile     : 9123456789
+Email          : priya.nair1998@gmail.com
+Address        : 402, Sunrise Apartments, Andheri West, Mumbai 400058
+
+BANKING DETAILS
+---------------
+Account Number : 501000123456789
+IFSC Code      : HDFC0001234
+Debit Card     : 4532 7789 1234 5678
+Expiry         : 08/28
+CVV            : 419
+UPI ID         : priya.nair@okhdfcbank
+
+VEHICLE / OTHER
+---------------
+Vehicle Number : MH 02 AB 1234
+Passport       : M1234567
+
+SYSTEM / DEV NOTES (please remove before sharing externally)
+------------------------------------------------------------
+Test server    : 203.0.113.45
+Admin login    : admin
+DB_PASSWORD=Sup3rS3cret!2026
+AWS_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE
+GITHUB_TOKEN=ghp_1234567890abcdefghijklmnopqrstuvwxyz
+Connection     : postgresql://appuser:Pgpass2026!@10.0.0.9:5432/customers
+Session JWT    : eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcd1234efgh
+MAC Address    : 00:1A:2B:3C:4D:5E
+
+ACTION: Customer reports Rs 49,999 debited after clicking an SMS link.
+Advised to call 1930 and file at cybercrime.gov.in.

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, risk_panel, findings_list, ai_block, ioc_table with context %}
+{% block title %}Scan #{{ s.id }} — {{ APP_NAME }}{% endblock %}
+{% block page_title %}🔬 Scan #{{ s.id }}: {{ s.module|replace('-',' ')|title }}{% endblock %}
+{% block page_sub %}{{ s.created_at }} UTC{% endblock %}
+{% block topbar_extra %}
+<a href="{{ url_for('report_scan', scan_id=s.id) }}" target="_blank" class="btn btn-sm">📄 Export report</a>
+<a href="{{ url_for('history_page') }}" class="btn btn-ghost btn-sm">← History</a>
+{% endblock %}
+
+{% block content %}
+
+{% set d = s.details_obj %}
+
+{{ risk_panel(s.risk_score, s.verdict or 'Result', s.summary or '') }}
+
+<div class="card">
+  <div class="card-head"><div class="card-title">📋 Scan Metadata</div></div>
+  <dl class="kv">
+    <dt>Scan ID</dt><dd>#{{ s.id }}</dd>
+    <dt>Module</dt><dd>{{ s.module }}</dd>
+    <dt>Target</dt><dd>{{ s.target }}</dd>
+    <dt>Verdict</dt><dd>{{ s.verdict }}</dd>
+    <dt>Risk score</dt><dd>{{ s.risk_score }}/100</dd>
+    <dt>AI used</dt><dd>{{ 'Yes' if s.ai_used else 'No' }}</dd>
+    <dt>Duration</dt><dd>{{ s.duration_ms }} ms</dd>
+    <dt>Case</dt><dd>{% if s.case_id %}<a href="{{ url_for('case_detail', case_id=s.case_id) }}">Case #{{ s.case_id }}</a>{% else %}not attached{% endif %}</dd>
+    <dt>Timestamp</dt><dd>{{ s.created_at }} UTC</dd>
+  </dl>
+</div>
+
+{% if d.findings %}
+<div class="card">
+  <div class="card-head"><div class="card-title">🔎 Findings ({{ d.findings|length }})</div></div>
+  {{ findings_list(d.findings, 60) }}
+</div>
+{% endif %}
+
+{% if d.ai %}{{ ai_block(d.ai) }}{% endif %}
+
+{% if d.recommended_action %}
+<div class="card">
+  <div class="card-head"><div class="card-title">✅ Recommended Actions</div></div>
+  <ol style="margin-left:20px">
+    {% for a in d.recommended_action %}<li style="margin-bottom:6px;font-size:13.4px">{{ a }}</li>{% endfor %}
+  </ol>
+</div>
+{% endif %}
+
+{% if d.iocs and d.iocs.total %}
+<div class="card">
+  <div class="card-head"><div class="card-title">🎯 Indicators</div></div>
+  {{ ioc_table(d.iocs) }}
+</div>
+{% endif %}
+
+{% if d.hashes %}
+<div class="card">
+  <div class="card-head"><div class="card-title">🔐 File Hashes</div></div>
+  <dl class="kv">
+    {% for k, v in d.hashes.items() %}<dt>{{ k|upper }}</dt><dd>{{ v }}</dd>{% endfor %}
+  </dl>
+</div>
+{% endif %}
+
+{% if d.timeline %}
+<div class="card">
+  <div class="card-head"><div class="card-title">⏱️ Timeline</div></div>
+  <div class="tline">
+    {% for t in d.timeline[:80] %}
+    <div class="tl-item {{ t.severity }}">
+      <div class="tl-t">{{ t.ts }} · {{ t.source }}</div>
+      <div class="tl-e">{{ t.event }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🗄️ Raw Result Data</div>
+    <button class="btn btn-ghost btn-xs" onclick="document.getElementById('rawJson').classList.toggle('hidden')">Toggle</button></div>
+  <div class="pre hidden" id="rawJson">{{ s.details }}</div>
+</div>
+
+{% endblock %}

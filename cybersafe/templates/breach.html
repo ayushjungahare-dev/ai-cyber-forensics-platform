@@ -1,0 +1,808 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, gauge, risk_panel, findings_list, ai_block, case_selector, ai_toggle, empty_state with context %}
+{% block title %}Breach Checker — {{ APP_NAME }}{% endblock %}
+{% block page_title %}💧 Data Breach Exposure Checker{% endblock %}
+{% block page_sub %}Find out which breaches your email and passwords are caught up in{% endblock %}
+{% block topbar_extra %}
+<a href="{{ url_for('breach_catalog_page') }}" class="btn btn-ghost btn-sm">📚 Breach Catalogue</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid g4 mb">
+  <div class="stat"><div class="stat-i">💧</div><div class="stat-v">{{ stats.breach_count }}</div>
+    <div class="stat-l">Breaches Catalogued</div></div>
+  <div class="stat crit"><div class="stat-i">👥</div>
+    <div class="stat-v" style="font-size:21px">{{ stats.total_accounts_human }}</div>
+    <div class="stat-l">Accounts Affected</div></div>
+  <div class="stat"><div class="stat-i">🇮🇳</div><div class="stat-v">{{ stats.indian }}</div>
+    <div class="stat-l">India-linked</div></div>
+  <div class="stat"><div class="stat-i">🗄️</div><div class="stat-v">{{ corpus.total }}</div>
+    <div class="stat-l">Local Corpus Records</div></div>
+</div>
+
+<div class="tabs" data-tabs data-scope="#brPanes">
+  <button class="tab active" data-tab="email">📧 Check an Email</button>
+  <button class="tab" data-tab="pass">🔑 Check a Password</button>
+  <button class="tab" data-tab="watch">👁️ Watchlist ({{ watch|length }})</button>
+  <button class="tab" data-tab="corpus">🗄️ Local Corpus</button>
+  <button class="tab" data-tab="how">ℹ️ How This Works</button>
+  <button class="tab" data-tab="cfg">⚙️ Settings</button>
+</div>
+
+<div id="brPanes">
+
+<!-- ================= EMAIL ================= -->
+<div class="tabpane active" data-pane="email">
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">📧 Check Email Exposure</div>
+      <span class="ai-pill {{ 'ai-on' if sync.synced else 'ai-off' }}">
+        <span class="dot"></span>
+        {% if sync.synced %}HIBP catalogue: {{ '{:,}'.format(sync.count) }} breaches{% else %}Catalogue not synced{% endif %}
+      </span>
+    </div>
+
+    <form method="post" data-loading>
+      <div class="field">
+        <label>Email address to check</label>
+        <input type="text" name="email" placeholder="you@example.com" autocomplete="off"
+               value="{{ result.email if result and not result.error else '' }}" required>
+      </div>
+
+      <label class="check mb">
+        <input type="hidden" name="online" value="0">
+        <input type="checkbox" name="online" value="1" {{ 'checked' if online_on }}>
+        <span><b>Live lookup</b> — query real breach databases
+          ({% if has_key %}HaveIBeenPwned official + {% endif %}XposedOrNot + LeakCheck).
+          Untick to use the offline catalogue only.</span>
+      </label>
+
+      <details class="mb">
+        <summary class="small muted" style="cursor:pointer;padding:6px 0">
+          Optional: tick services you use (only used if no database can be reached)</summary>
+        <div class="chips mt-s" style="max-height:170px;overflow-y:auto;padding:10px;
+             background:var(--bg2);border:1px solid var(--border2);border-radius:8px">
+          {% for dom, name in services %}
+          <label class="chip" style="cursor:pointer">
+            <input type="checkbox" name="services" value="{{ dom }}"
+                   style="width:13px;height:13px;margin-right:5px">{{ name }}</label>
+          {% endfor %}
+        </div>
+      </details>
+
+      {{ case_selector(open_cases) }}
+      {{ ai_toggle() }}
+      <button type="submit" class="btn mt" data-loading="Querying breach databases…">
+        🔍 Check This Email</button>
+      <span class="dim small hidden" data-loading-note>Contacting live breach databases — a few seconds.</span>
+    </form>
+
+    {% if not has_key %}
+    <div class="alert alert-info mt">
+      <span>🔑</span>
+      <div><b>Want authoritative HaveIBeenPwned results?</b> HIBP's per-email API needs your own
+      key (about $3.95/month from
+      <a href="https://haveibeenpwned.com/API/Key" target="_blank" rel="noopener">haveibeenpwned.com/API/Key</a>).
+      Paste it in the <b>Settings</b> tab and it will be used automatically.
+      Without it the free providers still give real per-email answers.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if result %}
+    {% if result.error %}
+      <div class="alert alert-err"><span>⚠️</span><div>{{ result.error }}</div></div>
+    {% else %}
+
+    {# ---------------- BIG VERDICT ---------------- #}
+    {% if result.breached %}
+    <div class="risk critical" style="align-items:center">
+      <div style="font-size:64px;line-height:1">🚨</div>
+      <div class="risk-info">
+        <div class="risk-verdict" style="font-size:30px">BREACHED</div>
+        <div class="risk-desc" style="font-size:15px">
+          <b>{{ result.email }}</b> {{ result.headline }}
+          {% if result.leaked_records %}<br>Approximately
+            <b>{{ '{:,}'.format(result.leaked_records) }}</b> leaked records reference this address.{% endif %}
+        </div>
+      </div>
+      {{ gauge(result.risk_score, 104) }}
+    </div>
+    {% elif result.verdict == 'NOT FOUND' %}
+    <div class="risk low" style="align-items:center">
+      <div style="font-size:64px;line-height:1">✅</div>
+      <div class="risk-info">
+        <div class="risk-verdict" style="font-size:30px">NOT FOUND</div>
+        <div class="risk-desc" style="font-size:15px">
+          <b>{{ result.email }}</b> was not found in any breach database that responded.
+          <br>{{ result.live.confidence_note }}
+        </div>
+      </div>
+      {{ gauge(result.risk_score, 104) }}
+    </div>
+    {% else %}
+    <div class="risk medium" style="align-items:center">
+      <div style="font-size:64px;line-height:1">❓</div>
+      <div class="risk-info">
+        <div class="risk-verdict" style="font-size:30px">COULD NOT VERIFY</div>
+        <div class="risk-desc" style="font-size:15px">{{ result.headline }}</div>
+      </div>
+      {{ gauge(result.risk_score, 104) }}
+    </div>
+    {% endif %}
+
+    {# ---------------- PROVIDER STATUS ---------------- #}
+    <div class="card">
+      <div class="card-head"><div class="card-title">📡 Lookup Sources</div>
+        {% if result.breached %}
+          <span class="badge b-critical">confirmed hit</span>
+        {% else %}
+          <span class="badge b-{{ 'low' if result.live.confidence=='high' else 'medium' if result.live.confidence=='medium' else 'high' }}">
+            {{ result.live.confidence|default('none') }} confidence in "not found"</span>
+        {% endif %}
+      </div>
+      {% if result.breached %}
+      <div class="alert alert-info"><span>✔️</span>
+        <div>A positive hit is conclusive — one database finding your address is enough to
+        confirm exposure, regardless of how many others answered.</div></div>
+      {% endif %}
+      {% if result.live.providers %}
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Database</th><th>Status</th><th>Result</th><th>Breaches</th></tr></thead>
+        <tbody>
+        {% for p in result.live.providers %}
+        <tr>
+          <td><b>{{ p.label }}</b>
+            {% if p.authoritative %}{{ badge('low','authoritative') }}{% endif %}</td>
+          <td>{% if p.ok %}{{ badge('low','answered') }}{% else %}{{ badge('medium','no answer') }}{% endif %}</td>
+          <td>
+            {% if p.ok and p.found %}<span class="crit-t"><b>FOUND</b></span>
+            {% elif p.ok %}<span class="low-t">clean</span>
+            {% else %}<span class="dim">{{ p.error or '—' }}</span>{% endif %}
+          </td>
+          <td class="mono">{{ p.breaches|length if p.ok else '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+      <div class="alert alert-warn"><span>📴</span>
+        <div>Live lookup was switched off for this check, so only the offline catalogue was used.</div></div>
+      {% endif %}
+      <div class="dim xs mt-s">{{ result.method_note }}</div>
+    </div>
+
+    {% if result.corpus_hits %}
+    <div class="alert alert-err"><span>🚨</span>
+      <div><b>EXACT MATCH in your imported corpus.</b> This address appears in
+      {{ result.corpus_hits|length }} record(s) you imported — a locally verified exposure.</div></div>
+    {% endif %}
+
+    {# ---------------- BREACH LIST ---------------- #}
+    {% if result.live.breaches %}
+    <div class="card">
+      <div class="card-head"><div class="card-title">💧 Breaches Containing This Address</div>
+        <span class="dim xs">{{ result.live.breaches|length }} found</span></div>
+      <div class="field" style="margin-bottom:12px">
+        <input type="search" id="bFilter" placeholder="Filter these breaches…"
+               oninput="filterBreaches()">
+      </div>
+      <div id="breachList">
+      {% for b in result.live.breaches %}
+      <div class="finding {{ b.severity }}" data-name="{{ (b.name ~ ' ' ~ (b.data|join(' ')))|lower }}">
+        <span class="f-icon">💧</span>
+        <div class="f-body">
+          <div class="f-title">{{ b.name }}
+            {% if b.year %}<span class="dim">({{ b.year }})</span>{% endif %}
+            {{ badge(b.severity) }}
+            {% if b.stealer_log %}{{ badge('critical','stealer log') }}{% endif %}
+            {% if b.sensitive %}{{ badge('high','sensitive') }}{% endif %}
+            {% if not b.verified %}{{ badge('info','unverified') }}{% endif %}
+            {% if b.spam_list %}{{ badge('info','spam list') }}{% endif %}
+          </div>
+          {% if b.desc %}<div class="f-detail">{{ b.desc[:300] }}{% if b.desc|length > 300 %}…{% endif %}</div>{% endif %}
+          {% if b.data %}
+          <div class="chips mt-s">{% for d in b.data %}<span class="chip">{{ d }}</span>{% endfor %}</div>
+          {% endif %}
+          <div class="dim xs mt-s">
+            {% if b.accounts %}{{ '{:,}'.format(b.accounts) }} accounts · {% endif %}
+            {% if b.domain %}{{ b.domain }} · {% endif %}
+            reported by {{ b.seen_in|join(', ') }}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      </div>
+      <div id="noMatch" class="dim small tc hidden" style="padding:14px">No breaches match that filter.</div>
+    </div>
+    {% endif %}
+
+    {# ---------------- EXPOSED DATA + FINDINGS ---------------- #}
+    <div class="grid g2">
+      <div class="card">
+        <div class="card-head"><div class="card-title">🗂️ What Data Was Exposed</div></div>
+        {% if result.exposed_data_types %}
+          <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Data type</th><th>Risk</th><th>Breaches</th></tr></thead>
+            <tbody>
+            {% for d in result.exposed_data_types[:30] %}
+            <tr><td><b>{{ d.type }}</b></td><td>{{ badge(d.severity) }}</td>
+                <td class="mono">{{ d.breach_count }}</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          </div>
+          <div class="alert alert-warn mt"><span>⚠️</span>
+            <div>Some of this can never be changed. You can reset a password, but not your date
+            of birth, Aadhaar number or medical history. Treat those as permanently public.</div></div>
+        {% else %}
+          {{ empty_state('✅','No exposed data types identified') }}
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">🔎 Risk Factors</div></div>
+        {{ findings_list(result.findings, 25, 'No additional risk factors identified.') }}
+        {% if result.provider_note %}
+        <div class="alert alert-info mt"><span>📌</span>
+          <div><b>About {{ result.domain }}:</b> {{ result.provider_note }}</div></div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if result.timeline %}
+    <div class="card">
+      <div class="card-head"><div class="card-title">📅 Your Breach Timeline</div></div>
+      <div class="tline">
+        {% for t in result.timeline %}
+        <div class="tl-item {{ t.severity }}">
+          <div class="tl-t">{{ t.year }}</div>
+          <div class="tl-e"><b>{{ t.name }}</b>{% if t.accounts %} —
+            {{ '{:,}'.format(t.accounts) }} accounts{% endif %}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {{ ai_block(result.ai, 'AI Exposure Assessment') }}
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">✅ Your Recovery Action Plan</div></div>
+      {% for pr, label, cls in [('immediate','Do this now','critical'),
+                                ('high','High priority','high'),
+                                ('ongoing','Ongoing habits','medium')] %}
+        {% set items = result.action_plan|selectattr('priority','equalto',pr)|list %}
+        {% if items %}
+        <div class="card-title mt" style="font-size:13px">{{ label }}</div>
+        {% for a in items %}
+        <div class="finding {{ cls }}">
+          <span class="f-icon">{{ a.icon }}</span>
+          <div class="f-body"><div class="f-title">{{ a.action }}</div>
+            <div class="f-detail">{{ a.why }}</div></div>
+        </div>
+        {% endfor %}
+        {% endif %}
+      {% endfor %}
+      <div class="btn-group mt">
+        <button class="btn btn-sm" onclick="addWatch('{{ result.email|e }}')">👁️ Add to watchlist</button>
+        <a href="{{ url_for('password_page') }}" class="btn btn-ghost btn-sm">🔐 Build a new password</a>
+      </div>
+      <div id="watchOut" class="mt-s"></div>
+    </div>
+
+    {% endif %}
+  {% else %}
+
+  <div class="grid g2">
+    <div class="card">
+      <div class="card-head"><div class="card-title">💧 How the Lookup Works</div></div>
+      {% for icon, t, d, sev in [
+        ('🥇','HaveIBeenPwned official API','The authoritative source. Used automatically when you add your own API key in the Settings tab. Returns the exact breach list HIBP holds for your address.','low'),
+        ('🆓','XposedOrNot','Free, no API key. Queries a real breach database and returns the breaches your address appears in.','info'),
+        ('🆓','LeakCheck public API','Free, no API key. Returns how many leaked records reference your address and which sources they came from.','info'),
+        ('📚','HIBP breach encyclopaedia','Free, no API key. Every hit is enriched with authoritative descriptions and data classes from HIBP\'s full catalogue, cached locally.','low') ] %}
+      <div class="finding {{ sev }}">
+        <span class="f-icon">{{ icon }}</span>
+        <div class="f-body"><div class="f-title">{{ t }}</div><div class="f-detail">{{ d }}</div></div>
+      </div>
+      {% endfor %}
+      <div class="alert alert-ok mt"><span>🔒</span>
+        <div>Only the address you type is sent, and only to the breach databases. It is stored
+        locally in masked form (<code>r***l@gmail.com</code>) and nowhere else.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">🎯 Why Breach Exposure Matters</div></div>
+      {% for icon, t, d in [
+        ('🔁','Credential stuffing','Bots replay your breached email and password against hundreds of other sites. One reused password turns a single breach into total compromise.'),
+        ('🎣','Targeted phishing','Attackers quote real details from the breach — your name, address, last order — so the message feels legitimate.'),
+        ('📱','SIM swapping','A leaked phone number plus personal data lets an attacker move your number and intercept every SMS OTP.'),
+        ('🆔','Identity theft','Aadhaar, PAN or SSN exposure enables loans opened in your name, often discovered months later.'),
+        ('🦠','Stealer logs','If your address appears in a stealer-malware log, a device you used was infected and every saved password on it is compromised.') ] %}
+      <div class="finding {{ 'high' if loop.index <= 3 else 'medium' }}">
+        <span class="f-icon">{{ icon }}</span>
+        <div class="f-body"><div class="f-title">{{ t }}</div><div class="f-detail">{{ d }}</div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ================= PASSWORD ================= -->
+<div class="tabpane" data-pane="pass">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🔑 Has This Password Been Pwned?</div></div>
+
+    <div class="alert alert-info">
+      <span>🔐</span>
+      <div><b>How the online check protects you — k-anonymity.</b> Your password is hashed with
+      SHA-1 on this machine. Only the <b>first 5 characters</b> of that hash are sent to the free
+      Pwned Passwords API, which returns ~800 candidate hashes. The final comparison happens
+      here, offline. The server never sees your password, never sees the full hash, and cannot
+      tell which of the 800 results you cared about. <b>No API key is required.</b></div>
+    </div>
+
+    <div class="field">
+      <label>Password to check</label>
+      <div style="position:relative">
+        <input type="password" id="bpw" autocomplete="off" spellcheck="false"
+               placeholder="Type or paste a password">
+        <button type="button" id="bpwToggle" class="btn btn-ghost btn-xs"
+                style="position:absolute;right:6px;top:6px">👁 Show</button>
+      </div>
+    </div>
+
+    <label class="check mt-s">
+      <input type="checkbox" id="allowNet">
+      <span><b>Enable the online k-anonymity check</b> — contacts api.pwnedpasswords.com
+        (free, no API key, only 5 hash characters sent). Leave unticked to stay 100% offline.</span>
+    </label>
+
+    <div class="btn-group mt">
+      <button class="btn" onclick="checkPwned()">🔍 Check This Password</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('bpw').value='password123';checkPwned()">
+        Try a known-bad example</button>
+    </div>
+    <div id="pwnedOut" class="mt"></div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔒 Offline vs Online</div></div>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th></th><th>Offline only</th><th>With k-anonymity</th></tr></thead>
+        <tbody>
+          <tr><td><b>Network used</b></td><td class="low-t">None</td><td class="med-t">5 hash chars</td></tr>
+          <tr><td><b>API key</b></td><td class="low-t">None</td><td class="low-t">None</td></tr>
+          <tr><td><b>Cost</b></td><td class="low-t">Free</td><td class="low-t">Free</td></tr>
+          <tr><td><b>Corpus size</b></td><td>Your imports + built-in list</td>
+              <td class="low-t">~850 million real passwords</td></tr>
+          <tr><td><b>Password sent</b></td><td class="low-t">Never</td><td class="low-t">Never</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">💡 If Your Password Was Found</div></div>
+      <ol style="margin-left:20px;line-height:1.95">
+        <li>Change it <b>everywhere</b> you used it, starting with email and banking.</li>
+        <li>Do not just add a number — cracking rules already try those variations.</li>
+        <li>Switch to a unique passphrase per site, stored in a password manager.</li>
+        <li>Turn on 2FA so a stolen password alone is not enough.</li>
+        <li>Check your account's recent login activity for anything unfamiliar.</li>
+      </ol>
+      <div class="alert alert-warn mt"><span>⚠️</span>
+        <div>A password being "not found" is reassuring but not proof of safety. It may simply
+        not have appeared in a published dump yet.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= WATCHLIST ================= -->
+<div class="tabpane" data-pane="watch">
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">👁️ Monitored Addresses</div>
+      <button class="btn btn-ghost btn-sm" onclick="recheckAll()">🔄 Re-check all</button>
+    </div>
+    <div class="alert alert-info"><span>📡</span>
+      <div>Add the addresses you care about — personal, work, family. Re-check after you update
+      the breach catalogue, or whenever a major breach hits the news. Changes in score are
+      highlighted.</div></div>
+    <div id="recheckOut"></div>
+
+    {% if watch %}
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Email</th><th>Label</th><th>Risk</th><th>Breaches</th>
+        <th>Last checked</th><th></th></tr></thead>
+      <tbody>
+      {% for w in watch %}
+      <tr>
+        <td class="mono">{{ w.email }}</td>
+        <td class="small">{{ w.label or '—' }}</td>
+        <td>{{ badge(w.band, w.last_score|string ~ '/100') }}</td>
+        <td class="mono">{{ w.last_breaches }}</td>
+        <td class="dim xs nowrap">{{ w.last_checked[:16] if w.last_checked else '—' }}</td>
+        <td class="nowrap">
+          <form method="post" action="{{ url_for('breach_page') }}" style="display:inline">
+            <input type="hidden" name="email" value="{{ w.email }}">
+            <input type="hidden" name="use_ai" value="0">
+            <button class="btn btn-ghost btn-xs">Check</button>
+          </form>
+          <form method="post" action="{{ url_for('breach_watch_delete', wid=w.id) }}" style="display:inline">
+            <button class="btn btn-ghost btn-xs">✕</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      {{ empty_state('👁️','No addresses monitored yet','Run a check above, then click "Add to watchlist".') }}
+    {% endif %}
+
+    <div class="field mt">
+      <label>Add an address directly</label>
+      <div class="row">
+        <input type="text" id="watchEmail" placeholder="you@example.com">
+        <input type="text" id="watchLabel" placeholder="Label (e.g. work, personal)">
+        <button class="btn" onclick="addWatchManual()" style="flex:0 0 auto">Add</button>
+      </div>
+    </div>
+    <div id="watchOut2"></div>
+  </div>
+</div>
+
+<!-- ================= CORPUS ================= -->
+<div class="tabpane" data-pane="corpus">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🗄️ Local Breach Corpus</div></div>
+    <div class="alert alert-warn">
+      <span>⚖️</span>
+      <div><b>Use this lawfully.</b> Import only data you are authorised to hold — for example,
+      a security team checking which of its own staff addresses appear in a dump that was
+      already provided to the organisation. Do not import data obtained illegally.</div>
+    </div>
+    <div class="alert alert-ok">
+      <span>🔐</span>
+      <div><b>Passwords are never stored.</b> On import, each password is SHA-1 hashed and
+      truncated to a 5-character prefix. The platform keeps the email address and that prefix
+      only — enough to flag reuse, useless to an attacker.</div>
+    </div>
+
+    <form method="post" action="{{ url_for('breach_import') }}" enctype="multipart/form-data">
+      <div class="row">
+        <div class="field"><label>Source name</label>
+          <input type="text" name="source_name" placeholder="e.g. Collection-1 subset, internal audit 2026"></div>
+      </div>
+      <div class="field"><label>Upload a file</label>
+        <input type="file" name="corpus_file" accept=".txt,.csv,.log"></div>
+      <div class="field">
+        <label>…or paste records (one per line: <code>email</code>, <code>email:password</code>,
+          <code>email,password</code>, or CSV with an <code>email</code> column)</label>
+        <textarea name="corpus_text" rows="6" placeholder="user1@example.com:hunter2&#10;user2@example.com&#10;user3@example.com;letmein"></textarea>
+      </div>
+      <button type="submit" class="btn">📥 Import Corpus</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">📊 Imported Sources</div>
+      <span class="dim xs">{{ corpus.total }} email record(s) total</span></div>
+    {% if corpus.sources %}
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Source</th><th>Records</th><th>Imported</th><th></th></tr></thead>
+      <tbody>
+      {% for s in corpus.sources %}
+      <tr><td><b>{{ s.source }}</b></td><td class="mono">{{ s.n }}</td>
+          <td class="dim xs">{{ s.added[:16] if s.added else '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('breach_corpus_clear') }}" style="display:inline"
+                  onsubmit="return confirm('Delete all records from this source?')">
+              <input type="hidden" name="source" value="{{ s.source }}">
+              <button class="btn btn-ghost btn-xs">Delete</button>
+            </form>
+          </td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <form method="post" action="{{ url_for('breach_corpus_clear') }}" class="mt"
+          onsubmit="return confirm('Delete the ENTIRE local corpus?')">
+      <button class="btn btn-danger btn-sm">Clear entire corpus</button>
+    </form>
+    {% else %}
+      {{ empty_state('🗄️','No corpus imported','Exact-match checking becomes available once you import records.') }}
+    {% endif %}
+  </div>
+</div>
+
+<!-- ================= HOW ================= -->
+<div class="tabpane" data-pane="how">
+  <div class="card">
+    <div class="card-head"><div class="card-title">ℹ️ How This Compares to HaveIBeenPwned</div></div>
+    <div class="alert alert-info">
+      <span>📌</span>
+      <div><b>Being straight with you:</b> HIBP's <i>email</i> search runs on a commercial
+      database and their API requires a paid key. This platform has a hard no-API-key rule, so it
+      cannot replicate that exact lookup. Instead it gives you four capabilities that are
+      genuinely free — and one of them (password checking) is <i>identical</i> to what HIBP
+      offers, because that specific endpoint is free and keyless.</div>
+    </div>
+
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Capability</th><th>HaveIBeenPwned</th><th>This platform</th></tr></thead>
+      <tbody>
+        <tr><td><b>Password check</b></td><td class="low-t">Free, k-anonymity</td>
+            <td class="low-t">✅ Identical — same free API, no key</td></tr>
+        <tr><td><b>Email exact lookup</b></td><td class="med-t">Paid API key required</td>
+            <td class="med-t">Evidence-based inference + your imported corpus</td></tr>
+        <tr><td><b>Breach encyclopaedia</b></td><td class="low-t">Free</td>
+            <td class="low-t">✅ {{ stats.breach_count }} breaches, fully offline</td></tr>
+        <tr><td><b>Works offline</b></td><td class="crit-t">No</td>
+            <td class="low-t">✅ Yes, entirely</td></tr>
+        <tr><td><b>Indian breach coverage</b></td><td>Limited</td>
+            <td class="low-t">✅ {{ stats.indian }} India-specific incidents</td></tr>
+        <tr><td><b>AI recovery plan</b></td><td class="crit-t">No</td>
+            <td class="low-t">✅ Local Ollama</td></tr>
+        <tr><td><b>Cost</b></td><td>$3.95/month for email API</td>
+            <td class="low-t">✅ Free forever</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="card-title mt">The four methods used</div>
+    {% for n, t, d, sev in [
+      (1,'Offline breach intelligence','Your email provider domain and the services you tick are matched against a curated catalogue of ' ~ stats.breach_count ~ ' publicly reported breaches. We then explain exactly what data each incident exposed. No network, always available.','info'),
+      (2,'Local corpus exact match','Import a dump you lawfully possess and get true exact-match answers. Passwords are hashed and truncated on import.','low'),
+      (3,'Pwned Passwords k-anonymity','The genuinely free, keyless HIBP endpoint. Only 5 characters of the SHA-1 hash leave this machine. Opt-in, off by default.','medium'),
+      (4,'Exposure risk profiling','Scores the address itself — predictable format, embedded birth year, role account, provider targeting — because attackers do not need a breach to guess firstname.lastname@company.com.','info') ] %}
+    <div class="finding {{ sev }}">
+      <span class="f-icon">{{ n }}</span>
+      <div class="f-body"><div class="f-title">{{ t }}</div><div class="f-detail">{{ d }}</div></div>
+    </div>
+    {% endfor %}
+
+    <div class="alert alert-warn mt"><span>🎯</span>
+      <div><b>Interpreting your result honestly.</b> A high score means your address is
+      <i>statistically very likely</i> to be in circulation, based on documented breaches of
+      services you use. It is not a confirmed exact match unless the result explicitly says
+      "EXACT MATCH" from your imported corpus. Either way, the recommended actions — unique
+      passwords, 2FA, phishing vigilance — are the correct response.</div></div>
+
+    <div class="card-title mt">Catalogue coverage</div>
+    <div class="chips">
+      {% for cat, n in stats.categories %}<span class="chip on">{{ cat }}: {{ n }}</span>{% endfor %}
+    </div>
+    <div class="dim xs mt-s">Years covered: {{ stats.year_range[0] }}–{{ stats.year_range[1] }}
+      · Catalogue last updated: {{ stats.last_updated }}</div>
+  </div>
+</div>
+
+<!-- ================= SETTINGS ================= -->
+<div class="tabpane" data-pane="cfg">
+  <div class="grid g2">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔑 HaveIBeenPwned API Key</div>
+        {% if has_key %}{{ badge('low','configured') }}{% else %}{{ badge('medium','not set') }}{% endif %}</div>
+      <div class="alert alert-info">
+        <span>ℹ️</span>
+        <div>HIBP's <b>per-email</b> search requires your own API key (about <b>$3.95/month</b>)
+        from <a href="https://haveibeenpwned.com/API/Key" target="_blank" rel="noopener">haveibeenpwned.com/API/Key</a>.
+        It is the most complete and authoritative breach database available.<br><br>
+        <b>You do not need it.</b> Without a key the platform still queries XposedOrNot and
+        LeakCheck, which are free and give real per-email answers. The key simply upgrades
+        the result to authoritative.</div>
+      </div>
+      <div class="field">
+        <label>Your HIBP API key</label>
+        <input type="password" id="hibpKey" autocomplete="off"
+               placeholder="{{ '•••••••• (saved)' if has_key else 'paste your key here' }}">
+      </div>
+      <div class="btn-group">
+        <button class="btn" onclick="saveKey()">💾 Save key</button>
+        <button class="btn btn-ghost" onclick="testKey()">🧪 Test key</button>
+        {% if has_key %}<button class="btn btn-ghost" onclick="clearKey()">Remove key</button>{% endif %}
+      </div>
+      <div id="keyOut" class="mt"></div>
+      <div class="alert alert-ok mt"><span>🔒</span>
+        <div>The key is stored only in your local SQLite database and is sent only to
+        haveibeenpwned.com. You can also set it with the <code>HIBP_API_KEY</code>
+        environment variable.</div></div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">📚 HIBP Breach Catalogue</div>
+          {% if sync.synced %}{{ badge('low','synced') }}{% else %}{{ badge('high','not synced') }}{% endif %}</div>
+        <div class="alert alert-info"><span>📥</span>
+          <div>HIBP's full breach encyclopaedia is <b>free and needs no API key</b>. Downloading it
+          gives every result authoritative descriptions, exact account counts and data classes —
+          and it keeps working offline afterwards.</div></div>
+        <dl class="kv">
+          <dt>Breaches cached</dt><dd>{{ '{:,}'.format(sync.count) }}</dd>
+          <dt>Last synced</dt><dd>{{ sync.fetched_at or 'never' }}</dd>
+          <dt>Age</dt><dd>{{ sync.age_days ~ ' days' if sync.age_days is not none else '—' }}</dd>
+        </dl>
+        <button class="btn mt" onclick="syncCat()">🔄 Sync from HaveIBeenPwned</button>
+        <div id="syncOut" class="mt"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">🌐 Live Lookup</div></div>
+        <label class="check">
+          <input type="checkbox" id="onlineToggle" {{ 'checked' if online_on }}
+                 onchange="saveOnline()">
+          <span>Enable live breach-database lookup by default</span>
+        </label>
+        <div class="dim xs mt-s">When off, the Breach Checker uses only the offline catalogue
+        and clearly labels results as estimates. Every other module in the platform stays
+        fully offline either way.</div>
+        <div id="onlineOut" class="mt-s"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ---------- password pwned check ---------- */
+const bpw = document.getElementById('bpw');
+document.getElementById('bpwToggle').onclick = function(){
+  const show = bpw.type === 'password';
+  bpw.type = show ? 'text' : 'password';
+  this.textContent = show ? '🙈 Hide' : '👁 Show';
+};
+bpw.addEventListener('keydown', e => { if (e.key === 'Enter') checkPwned(); });
+
+async function checkPwned(){
+  const p = bpw.value;
+  const out = document.getElementById('pwnedOut');
+  if (!p) { out.innerHTML = ''; return; }
+  const net = document.getElementById('allowNet').checked;
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>' +
+    (net ? 'Hashing locally and querying the range API…' : 'Checking offline sources…') + '</div></div>';
+  const r = await postJSON('/api/breach/password', {password: p, allow_network: net});
+  if (r.error) { out.innerHTML = '<div class="alert alert-err"><span>⚠️</span><div>' + r.error + '</div></div>'; return; }
+
+  let h = '';
+  if (r.found) {
+    const cnt = r.count ? r.count.toLocaleString() + ' times' : 'at least once';
+    h += '<div class="alert alert-err"><span>🚨</span><div><b>PWNED — this password has appeared ' +
+         cnt + ' in known breaches.</b><br>' + (r.advice || '') + '</div></div>';
+  } else {
+    h += '<div class="alert alert-ok"><span>✅</span><div><b>Not found in the checked sources.</b><br>' +
+         (r.advice || '') + '</div></div>';
+  }
+  h += '<div class="tbl-wrap"><table><tbody>';
+  h += '<tr><td><b>SHA-1 prefix sent</b></td><td class="mono">' + r.sha1_prefix +
+       ' <span class="dim">(5 of 40 characters)</span></td></tr>';
+  h += '<tr><td><b>Network used</b></td><td>' +
+       (r.network_used ? '<span class="med-t">Yes — k-anonymity range query</span>'
+                       : '<span class="low-t">No — fully offline</span>') + '</td></tr>';
+  if (r.hashes_returned) h += '<tr><td><b>Candidates compared locally</b></td><td class="mono">' +
+       r.hashes_returned + '</td></tr>';
+  h += '<tr><td><b>Built-in common list</b></td><td>' + (r.offline_common ? '<span class="crit-t">match</span>' : 'no match') + '</td></tr>';
+  h += '<tr><td><b>Your imported corpus</b></td><td>' +
+       (r.offline_corpus ? '<span class="crit-t">match</span>'
+         : (r.corpus_prefix_matches ? '<span class="med-t">no exact match (' + r.corpus_prefix_matches +
+            ' hash-prefix neighbour' + (r.corpus_prefix_matches>1?'s':'') + ')</span>'
+            : 'no match')) + '</td></tr>';
+  if (r.source) h += '<tr><td><b>Source</b></td><td>' + r.source + '</td></tr>';
+  h += '</tbody></table></div>';
+  if (r.network_error) h += '<div class="alert alert-warn mt"><span>⚠️</span><div>' + r.network_error + '</div></div>';
+  h += '<div class="alert alert-info mt"><span>🔐</span><div>' + (r.privacy || '') + '<br>' + (r.note || '') + '</div></div>';
+  out.innerHTML = h;
+}
+
+/* ---------- watchlist ---------- */
+async function addWatch(email){
+  const out = document.getElementById('watchOut');
+  const r = await postJSON('/api/breach/watch', {email: email});
+  out.innerHTML = r.error
+    ? '<div class="alert alert-err"><span>⚠️</span><div>' + r.error + '</div></div>'
+    : '<div class="alert alert-ok"><span>👁️</span><div><b>' +
+      (r.already ? 'Already on your watchlist.' : 'Added to the watchlist.') +
+      '</b> Open the Watchlist tab to monitor it.</div></div>';
+}
+async function addWatchManual(){
+  const e = document.getElementById('watchEmail').value.trim();
+  const l = document.getElementById('watchLabel').value.trim();
+  if (!e) return;
+  const r = await postJSON('/api/breach/watch', {email: e, label: l});
+  const out = document.getElementById('watchOut2');
+  if (r.error) { out.innerHTML = '<div class="alert alert-err"><span>⚠️</span><div>' + r.error + '</div></div>'; return; }
+  location.reload();
+}
+async function recheckAll(){
+  const out = document.getElementById('recheckOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Re-checking…</div></div>';
+  const r = await postJSON('/api/breach/recheck', {});
+  let h = '<div class="alert alert-ok"><span>✅</span><div><b>' + r.checked + ' address(es) re-checked.</b>';
+  if (r.changed && r.changed.length) {
+    h += '<br>Score changes: ' + r.changed.map(c => c.email + ' ' + c.old + '→' + c.new).join(', ');
+  } else { h += ' No score changes.'; }
+  h += '</div></div>';
+  out.innerHTML = h;
+  if (r.changed && r.changed.length) setTimeout(() => location.reload(), 2000);
+}
+
+/* ---------- breach list filter ---------- */
+function filterBreaches(){
+  const q = (document.getElementById('bFilter').value || '').toLowerCase().trim();
+  let shown = 0;
+  document.querySelectorAll('#breachList .finding').forEach(el => {
+    const hit = !q || (el.dataset.name || '').includes(q);
+    el.style.display = hit ? '' : 'none';
+    if (hit) shown++;
+  });
+  document.getElementById('noMatch').classList.toggle('hidden', shown > 0);
+}
+
+/* ---------- settings ---------- */
+async function saveKey(){
+  const k = document.getElementById('hibpKey').value.trim();
+  const out = document.getElementById('keyOut');
+  if (!k) { out.innerHTML = '<div class="alert alert-warn"><span>⚠️</span><div>Enter a key first.</div></div>'; return; }
+  await postJSON('/api/breach/settings', {hibp_api_key: k});
+  out.innerHTML = '<div class="alert alert-ok"><span>✅</span><div><b>Key saved.</b> Testing it now…</div></div>';
+  testKey();
+}
+async function clearKey(){
+  await postJSON('/api/breach/settings', {hibp_api_key: ''});
+  location.reload();
+}
+async function testKey(){
+  const out = document.getElementById('keyOut');
+  const k = document.getElementById('hibpKey').value.trim();
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Contacting HaveIBeenPwned…</div></div>';
+  const r = await postJSON('/api/breach/test-key', k ? {hibp_api_key: k} : {});
+  out.innerHTML = r.ok
+    ? '<div class="alert alert-ok"><span>✅</span><div><b>' + r.message + '</b> Future checks will use HIBP automatically.</div></div>'
+    : '<div class="alert alert-err"><span>❌</span><div><b>Key test failed:</b> ' + r.error + '</div></div>';
+}
+async function syncCat(){
+  const out = document.getElementById('syncOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Downloading the breach catalogue from HaveIBeenPwned…</div></div>';
+  const r = await postJSON('/api/breach/sync', {});
+  out.innerHTML = r.ok
+    ? '<div class="alert alert-ok"><span>✅</span><div><b>' + r.message + '</b></div></div>'
+    : '<div class="alert alert-err"><span>❌</span><div>' + (r.message || r.error) + '</div></div>';
+  if (r.ok) setTimeout(() => location.reload(), 1800);
+}
+async function saveOnline(){
+  const on = document.getElementById('onlineToggle').checked;
+  await postJSON('/api/breach/settings', {online: on});
+  document.getElementById('onlineOut').innerHTML =
+    '<div class="alert alert-ok"><span>✅</span><div>Live lookup ' + (on ? 'enabled' : 'disabled') + '.</div></div>';
+}
+
+/* ---------- AI breach explainer ---------- */
+async function explainBreach(name, btn){
+  const slot = btn.closest('.f-body').querySelector('.explain-slot');
+  slot.innerHTML = '<div class="alert alert-info mt-s"><span class="spin"></span><div>Asking the local model…</div></div>';
+  const r = await postJSON('/api/breach/explain', {name: name});
+  if (r.error || !r.ai_explanation) {
+    slot.innerHTML = '<div class="alert alert-warn mt-s"><span>🤖</span><div>AI unavailable — start Ollama for breach explanations.</div></div>';
+    return;
+  }
+  slot.innerHTML = '<div class="ai-box" style="margin-top:10px"><div class="ai-head">🤖 ' +
+    name + '</div><div class="ai-body">' + mdToHtml(r.ai_explanation) + '</div></div>';
+}
+</script>
+{% endblock %}

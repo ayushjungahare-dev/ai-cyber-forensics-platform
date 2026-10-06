@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty_state with context %}
+{% block title %}Daily Toolkit — {{ APP_NAME }}{% endblock %}
+{% block page_title %}🧰 Daily Security Toolkit{% endblock %}
+{% block page_sub %}Practical everyday tools — PII scanner, EXIF cleaner, scam detector, encoders and more{% endblock %}
+
+{% block content %}
+
+<div class="tabs" data-tabs data-scope="#tkPanes">
+  <button class="tab active" data-tab="pii">🔏 PII Scanner</button>
+  <button class="tab" data-tab="scam">🚩 Scam Detector</button>
+  <button class="tab" data-tab="exif">📷 EXIF Cleaner</button>
+  <button class="tab" data-tab="qr">📱 QR Checker</button>
+  <button class="tab" data-tab="enc">🔤 Encoder / Decoder</button>
+  <button class="tab" data-tab="hash">#️⃣ Hash Tools</button>
+  <button class="tab" data-tab="check">✅ Security Checkup</button>
+</div>
+
+<div id="tkPanes">
+
+<!-- ============ PII SCANNER ============ -->
+<div class="tabpane active" data-pane="pii">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🔏 Sensitive Data Scanner &amp; Redactor</div></div>
+    <div class="alert alert-info"><span>💡</span>
+      <div><b>Use this before you share anything.</b> Paste a log, screenshot text, bug report,
+      support ticket or document, and this finds Aadhaar numbers, PAN, cards, phone numbers, API
+      keys, passwords and more — then gives you a redacted version safe to share.</div></div>
+    <div class="field">
+      <label>Text to scan</label>
+      <textarea id="piiText" rows="9" placeholder="Paste any text — a log file, an email, a support message…"></textarea>
+    </div>
+    <button class="btn" onclick="scanPII()">🔍 Scan for Sensitive Data</button>
+    <button class="btn btn-ghost" onclick="loadPiiSample()">Load example</button>
+    <div id="piiOut" class="mt"></div>
+  </div>
+</div>
+
+<!-- ============ SCAM DETECTOR ============ -->
+<div class="tabpane" data-pane="scam">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🚩 Fake Job / Investment / Prize Scam Detector</div></div>
+    <div class="alert alert-warn"><span>💼</span>
+      <div>Specialised for the scams that dominate India: fake job offers, task-based "like and
+      earn" fraud, guaranteed-return investment schemes, lottery wins, parcel/customs fraud and
+      "digital arrest" calls.</div></div>
+    <div class="field">
+      <label>Paste the offer, message or advertisement</label>
+      <textarea id="scamText" rows="8" placeholder="Paste the WhatsApp/Telegram/email message here…"></textarea>
+    </div>
+    <label class="check"><input type="checkbox" id="scamAI" {{ 'checked' if ollama_online }} {{ 'disabled' if not ollama_online }}>
+      <span>Include AI advice</span></label>
+    <div class="mt">
+      <button class="btn" onclick="checkScam()">🚩 Check for Scam</button>
+      <button class="btn btn-ghost" onclick="loadScamSample()">Load example</button>
+    </div>
+    <div id="scamOut" class="mt"></div>
+  </div>
+</div>
+
+<!-- ============ EXIF ============ -->
+<div class="tabpane" data-pane="exif">
+  <div class="card">
+    <div class="card-head"><div class="card-title">📷 Photo Metadata Viewer &amp; Stripper</div></div>
+    <div class="alert alert-warn"><span>📍</span>
+      <div><b>Photos can reveal where you live.</b> Most phone cameras embed GPS coordinates, the
+      exact time, and your device model into every image. Posting an unedited photo can broadcast
+      your home address. Check — and strip — before you share.</div></div>
+    <form id="exifForm" enctype="multipart/form-data">
+      <div class="field"><label>Image file (JPEG or PNG)</label>
+        <input type="file" name="file" accept="image/*" required></div>
+      <label class="check"><input type="checkbox" name="strip" value="1" checked>
+        <span>Also produce a cleaned copy with all metadata removed</span></label>
+      <button type="submit" class="btn mt">📷 Inspect Metadata</button>
+    </form>
+    <div id="exifOut" class="mt"></div>
+  </div>
+</div>
+
+<!-- ============ QR ============ -->
+<div class="tabpane" data-pane="qr">
+  <div class="card">
+    <div class="card-head"><div class="card-title">📱 QR Code Payload Safety Checker</div></div>
+    <div class="alert alert-info"><span>📷</span>
+      <div>Scan the QR with any phone app that <b>shows the payload without opening it</b>, then
+      paste that text here. This checks whether it is a payment request, a phishing URL, a Wi-Fi
+      join, or something worse — before you act on it.</div></div>
+    <div class="field">
+      <label>QR code content</label>
+      <textarea id="qrText" rows="3" placeholder="upi://pay?pa=someone@ybl&pn=Merchant&am=4999  or  https://..."></textarea>
+    </div>
+    <button class="btn" onclick="checkQR()">📱 Check QR Payload</button>
+    <div id="qrOut" class="mt"></div>
+  </div>
+</div>
+
+<!-- ============ ENCODER ============ -->
+<div class="tabpane" data-pane="enc">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🔤 Encoder / Decoder Workbench</div></div>
+    <div class="alert alert-info"><span>🔬</span>
+      <div>Malware and phishing constantly hide payloads in Base64, hex and URL encoding. Decode
+      them here to reveal what a suspicious script or link is really doing.</div></div>
+    <div class="field">
+      <label>Input</label>
+      <textarea id="encIn" rows="5" placeholder="Paste text or encoded data…"></textarea>
+    </div>
+    <div class="chips mb">
+      {% for op, label in ops %}
+      <button class="chip" onclick="doEncode('{{ op }}')">{{ label }}</button>
+      {% endfor %}
+    </div>
+    <div class="field">
+      <label>Output <button class="btn btn-ghost btn-xs" id="copyEnc" style="float:right">📋 Copy</button></label>
+      <div class="pre" id="encOut" style="min-height:80px">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HASH ============ -->
+<div class="tabpane" data-pane="hash">
+  <div class="grid g2">
+    <div class="card">
+      <div class="card-head"><div class="card-title">#️⃣ Text Hash Calculator</div></div>
+      <div class="field"><label>Text</label>
+        <textarea id="hashText" rows="4" placeholder="Type anything…"></textarea></div>
+      <button class="btn" onclick="doHash()">Calculate Hashes</button>
+      <div id="hashOut" class="mt"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">⚖️ Compare Two Files</div></div>
+      <div class="alert alert-info"><span>🔍</span>
+        <div>Verify a download matches the publisher's checksum, or prove two files are byte-for-byte
+        identical. This is the same technique used for evidence integrity.</div></div>
+      <form id="cmpForm" enctype="multipart/form-data">
+        <div class="field"><label>File A</label><input type="file" name="file_a" required></div>
+        <div class="field"><label>File B</label><input type="file" name="file_b" required></div>
+        <button type="submit" class="btn">Compare</button>
+      </form>
+      <div id="cmpOut" class="mt"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CHECKUP ============ -->
+<div class="tabpane" data-pane="check">
+  <div class="card">
+    <div class="card-head"><div class="card-title">✅ Personal Security Checkup</div>
+      <span class="dim xs">{{ checkup|length }} questions · 2 minutes</span></div>
+    <div class="alert alert-info"><span>🎯</span>
+      <div>Answer honestly. You will get a weighted security score, a grade, and a prioritised
+      list of exactly what to fix first. Run this monthly.</div></div>
+    <div id="checkList">
+      {% for c in checkup %}
+      <div class="finding info" style="align-items:center">
+        <span class="f-icon">{{ loop.index }}</span>
+        <div class="f-body"><div class="f-title" style="font-weight:600">{{ c.q }}</div></div>
+        <div class="flex nowrap">
+          <label class="check"><input type="radio" name="chk_{{ c.id }}" value="yes"> Yes</label>
+          <label class="check"><input type="radio" name="chk_{{ c.id }}" value="no"> No</label>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <button class="btn mt" onclick="runCheckup()">Calculate My Security Score</button>
+    <div id="checkOut" class="mt"></div>
+  </div>
+</div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ---------- PII ---------- */
+const PII_SAMPLE = `Hi support team,
+
+I could not complete my payment. Here are my details:
+Name: Rahul Sharma
+Aadhaar: 4521 8834 9012
+PAN: ABCPS1234K
+Card: 4532 7789 1234 5678 (CVV 419, expiry 08/28)
+Mobile: +91 98765 43210
+Email: rahul.sharma1998@gmail.com
+UPI: rahul.sharma@okhdfcbank
+Account no: 501000123456789, IFSC HDFC0001234
+DOB: 14/07/1998
+
+Server details for the dev environment:
+DB_PASSWORD=Sup3rS3cret!2026
+AWS key: AKIAIOSFODNN7EXAMPLE
+API endpoint: 203.0.113.45`;
+
+function loadPiiSample(){ document.getElementById('piiText').value = PII_SAMPLE; }
+
+async function scanPII(){
+  const text = document.getElementById('piiText').value;
+  if (!text.trim()) return;
+  const out = document.getElementById('piiOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Scanning…</div></div>';
+  const r = await postJSON('/api/tool/pii', {text: text});
+  if (r.safe) {
+    out.innerHTML = '<div class="alert alert-ok"><span>✅</span><div><b>No sensitive data detected.</b> This text looks safe to share.</div></div>';
+    return;
+  }
+  let h = '<div class="alert alert-' + (r.risk_score >= 55 ? 'err' : 'warn') + '"><span>🔏</span><div><b>' +
+    r.count + ' sensitive item(s) found</b> — exposure risk ' + r.risk_score + '/100. Do NOT share this text as-is.</div></div>';
+  h += '<div class="tbl-wrap"><table><thead><tr><th>Type</th><th>Severity</th><th>Found (masked)</th><th>Why it matters</th></tr></thead><tbody>';
+  r.findings.forEach(f => {
+    h += '<tr><td><b>' + f.type + '</b></td><td><span class="badge b-' + f.severity + '">' + f.severity +
+         '</span></td><td class="mono">' + f.masked + '</td><td class="small">' + f.why + '</td></tr>';
+  });
+  h += '</tbody></table></div>';
+  h += '<div class="card-title mt" style="font-size:13px">✅ Safe redacted version <button class="btn btn-ghost btn-xs" id="copyRedact" style="float:right">📋 Copy</button></div>';
+  h += '<div class="pre mt-s" id="redactText">' + r.redacted.replace(/</g,'&lt;') + '</div>';
+  out.innerHTML = h;
+  document.getElementById('copyRedact').onclick = function(){
+    copyText(document.getElementById('redactText').textContent, this);
+  };
+}
+
+/* ---------- scam ---------- */
+const SCAM_SAMPLE = `🎉 CONGRATULATIONS! 🎉
+
+You have been SELECTED for Work From Home Part Time Job with Amazon India!
+
+✅ Earn Rs. 3000-5000 per day
+✅ Only 2-3 hours daily work
+✅ No experience needed, 10th pass can apply
+✅ Direct joining - no interview!
+✅ Only 12 seats left!
+
+Simple task: Just like and review products on our app.
+
+To confirm your seat, pay a REFUNDABLE security deposit of Rs. 1,999 to:
+UPI: hrteam.amazon@ybl
+
+Send your Aadhaar and PAN card photo to confirm identity.
+
+Contact HR on WhatsApp: +91 91234 56789
+Reply fast, offer expires today!`;
+
+function loadScamSample(){ document.getElementById('scamText').value = SCAM_SAMPLE; }
+
+async function checkScam(){
+  const text = document.getElementById('scamText').value;
+  if (!text.trim()) return;
+  const out = document.getElementById('scamOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Analysing…</div></div>';
+  const r = await postJSON('/api/tool/scam', {text: text, use_ai: document.getElementById('scamAI').checked});
+  const band = r.band;
+  let h = '<div class="risk ' + band + '">' + gauge(r.risk_score) +
+    '<div class="risk-info"><div class="risk-verdict">' +
+    (r.risk_score >= 80 ? 'Almost certainly a SCAM' : r.risk_score >= 55 ? 'Very likely a scam'
+      : r.risk_score >= 25 ? 'Suspicious — be careful' : 'No strong scam indicators') +
+    '</div><div class="risk-desc">' + r.findings.length + ' indicator(s) detected.</div></div></div>';
+
+  r.findings.slice(0, 20).forEach(f => {
+    h += '<div class="finding ' + f.severity + '"><span class="f-icon">🚩</span><div class="f-body">' +
+         '<div class="f-title">' + f.title + '</div><div class="f-detail">' + f.detail + '</div></div></div>';
+  });
+
+  if (r.ai && r.ai.available) {
+    h += '<div class="ai-box"><div class="ai-head">🤖 AI Fraud Advisor</div><div class="ai-body">' +
+         mdToHtml(r.ai.text) + '</div></div>';
+  }
+  h += '<div class="card mt"><div class="card-title" style="font-size:13px">✅ What to do</div><ul style="margin:8px 0 0 20px">';
+  r.advice.forEach(a => h += '<li style="font-size:13.2px;margin:4px 0">' + a + '</li>');
+  h += '</ul></div>';
+  out.innerHTML = h;
+}
+
+/* ---------- EXIF ---------- */
+document.getElementById('exifForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const out = document.getElementById('exifOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Reading metadata…</div></div>';
+  const resp = await fetch('/tool/exif', {method:'POST', body: new FormData(e.target)});
+  const r = await resp.json();
+  if (r.error) { out.innerHTML = '<div class="alert alert-err"><span>⚠️</span><div>' + r.error + '</div></div>'; return; }
+  let h = '';
+  if (!r.has_exif) {
+    h = '<div class="alert alert-ok"><span>✅</span><div><b>No metadata found</b> in this ' +
+        (r.format || 'image') + '. It is already safe to share.</div></div>';
+  } else {
+    h = '<div class="alert alert-' + (r.gps && Object.keys(r.gps).length ? 'err' : 'warn') + '"><span>📷</span><div><b>Metadata detected</b> (' +
+        r.format + ').' + (r.gps && Object.keys(r.gps).length ? ' <b>GPS COORDINATES ARE EMBEDDED.</b>' : '') + '</div></div>';
+    if (r.privacy_risk && r.privacy_risk.length) {
+      r.privacy_risk.forEach(p => {
+        h += '<div class="finding ' + (p.includes('GPS') ? 'critical' : 'medium') + '"><span class="f-icon">⚠️</span>' +
+             '<div class="f-body"><div class="f-detail">' + p + '</div></div></div>';
+      });
+    }
+    const rows = Object.entries(r.tags || {}).concat(Object.entries(r.gps || {}).map(([k,v]) => ['GPS ' + k, v]));
+    if (rows.length) {
+      h += '<div class="tbl-wrap mt"><table><thead><tr><th>Tag</th><th>Value</th></tr></thead><tbody>';
+      rows.forEach(([k,v]) => h += '<tr><td><b>' + k + '</b></td><td class="mono">' + v + '</td></tr>');
+      h += '</tbody></table></div>';
+    }
+    if (r.strip_result && r.strip_result.ok) {
+      h += '<div class="alert alert-ok mt"><span>🧼</span><div><b>Cleaned copy created.</b> Removed ' +
+           r.strip_result.removed + ' bytes of metadata. <a href="/tool/exif/download/' +
+           encodeURIComponent(r.clean_file) + '">⬇️ Download the clean image</a></div></div>';
+    }
+  }
+  out.innerHTML = h;
+});
+
+/* ---------- QR ---------- */
+async function checkQR(){
+  const p = document.getElementById('qrText').value;
+  if (!p.trim()) return;
+  const out = document.getElementById('qrOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Checking…</div></div>';
+  const r = await postJSON('/api/tool/qr', {payload: p});
+  let h = '<div class="risk ' + r.band + '">' + gauge(r.risk_score) +
+    '<div class="risk-info"><div class="risk-verdict">' + r.kind.replace('_',' ').toUpperCase() +
+    '</div><div class="risk-desc">Risk score ' + r.risk_score + '/100 · ' + r.findings.length +
+    ' indicator(s).</div></div></div>';
+  (r.notes || []).forEach(n => h += '<div class="alert alert-warn"><span>ℹ️</span><div>' + n + '</div></div>');
+  r.findings.slice(0,15).forEach(f => {
+    h += '<div class="finding ' + f.severity + '"><span class="f-icon">🚩</span><div class="f-body">' +
+         '<div class="f-title">' + f.title + '</div><div class="f-detail">' + f.detail + '</div></div></div>';
+  });
+  h += '<div class="card mt"><div class="card-title" style="font-size:13px">✅ QR safety rules</div><ul style="margin:8px 0 0 20px">';
+  r.advice.forEach(a => h += '<li style="font-size:13.2px;margin:4px 0">' + a + '</li>');
+  h += '</ul></div>';
+  out.innerHTML = h;
+}
+
+/* ---------- encoder ---------- */
+async function doEncode(op){
+  const text = document.getElementById('encIn').value;
+  const r = await postJSON('/api/tool/encode', {text: text, operation: op});
+  const out = document.getElementById('encOut');
+  out.textContent = r.ok ? r.result : ('Error: ' + r.error);
+  if (r.note) out.textContent += '\n\n[' + r.note + ']';
+}
+document.getElementById('copyEnc').onclick = function(){
+  copyText(document.getElementById('encOut').textContent, this);
+};
+
+/* ---------- hash ---------- */
+async function doHash(){
+  const t = document.getElementById('hashText').value;
+  const r = await postJSON('/api/tool/hash-text', {text: t});
+  let h = '<div class="tbl-wrap"><table><thead><tr><th>Algorithm</th><th>Hash</th></tr></thead><tbody>';
+  Object.entries(r).forEach(([k,v]) => h += '<tr><td><b>' + k.toUpperCase() + '</b></td><td class="t-mono">' + v + '</td></tr>');
+  h += '</tbody></table></div>';
+  document.getElementById('hashOut').innerHTML = h;
+}
+
+document.getElementById('cmpForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const out = document.getElementById('cmpOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Hashing both files…</div></div>';
+  const resp = await fetch('/tool/compare', {method:'POST', body: new FormData(e.target)});
+  const r = await resp.json();
+  if (r.error) { out.innerHTML = '<div class="alert alert-err"><span>⚠️</span><div>' + r.error + '</div></div>'; return; }
+  out.innerHTML = '<div class="alert ' + (r.identical ? 'alert-ok' : 'alert-warn') + '"><span>' +
+    (r.identical ? '✅' : '⚠️') + '</span><div><b>' + r.message + '</b></div></div>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>File</th><th>Size</th><th>SHA-256</th></tr></thead><tbody>' +
+    '<tr><td>' + r.name_a + '</td><td class="mono">' + r.a.size + '</td><td class="t-mono xs">' + r.a.sha256 + '</td></tr>' +
+    '<tr><td>' + r.name_b + '</td><td class="mono">' + r.b.size + '</td><td class="t-mono xs">' + r.b.sha256 + '</td></tr>' +
+    '</tbody></table></div>';
+});
+
+/* ---------- checkup ---------- */
+async function runCheckup(){
+  const answers = {};
+  document.querySelectorAll('#checkList input[type=radio]:checked').forEach(r => {
+    answers[r.name.replace('chk_','')] = r.value;
+  });
+  if (Object.keys(answers).length === 0) {
+    document.getElementById('checkOut').innerHTML =
+      '<div class="alert alert-warn"><span>⚠️</span><div>Answer at least a few questions first.</div></div>';
+    return;
+  }
+  const r = await postJSON('/api/tool/checkup', {answers: answers});
+  const band = r.percent >= 75 ? 'low' : r.percent >= 60 ? 'medium' : r.percent >= 40 ? 'high' : 'critical';
+  let h = '<div class="risk ' + band + '">' + gauge(r.percent) +
+    '<div class="risk-info"><div class="risk-verdict">Grade ' + r.grade + ' — ' + r.percent + '%</div>' +
+    '<div class="risk-desc">' + r.message + ' You answered ' + r.answered + ' of ' + r.total + ' questions.</div></div></div>';
+  if (r.gaps.length) {
+    h += '<div class="card"><div class="card-title" style="font-size:13.5px">🔧 Fix These, Highest Impact First</div>';
+    r.gaps.forEach((g,i) => {
+      h += '<div class="finding ' + (g.priority === 'high' ? 'critical' : g.priority === 'medium' ? 'high' : 'medium') +
+           '"><span class="f-icon">' + (i+1) + '</span><div class="f-body"><div class="f-title">' + g.question +
+           '</div><div class="f-detail">' + g.fix + '</div></div></div>';
+    });
+    h += '</div>';
+  } else {
+    h += '<div class="alert alert-ok"><span>🏆</span><div><b>Perfect score.</b> Your security hygiene is excellent. Re-run this monthly to stay there.</div></div>';
+  }
+  if (r.strengths.length) {
+    h += '<div class="card"><div class="card-title" style="font-size:13.5px">✅ You Are Already Doing Well</div><ul style="margin:8px 0 0 20px">';
+    r.strengths.forEach(s => h += '<li style="font-size:13px;margin:3px 0">' + s + '</li>');
+    h += '</ul></div>';
+  }
+  document.getElementById('checkOut').innerHTML = h;
+  document.getElementById('checkOut').scrollIntoView({behavior:'smooth', block:'start'});
+}
+</script>
+{% endblock %}

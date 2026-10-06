@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Help & Guide — {{ APP_NAME }}{% endblock %}
+{% block page_title %}❓ Help &amp; User Guide{% endblock %}
+{% block page_sub %}How to use every module, plus emergency contacts{% endblock %}
+
+{% block content %}
+
+<div class="alert alert-err">
+  <span>🚨</span>
+  <div><b>Been scammed? Act in this order, right now.</b><br>
+  <b>1.</b> Call <b>1930</b> (India national cyber financial fraud helpline) — within the golden
+  hour the money can often be frozen.
+  <b>2.</b> Report at <a href="https://cybercrime.gov.in" target="_blank">cybercrime.gov.in</a>.
+  <b>3.</b> Call your bank to block the card/account.
+  <b>4.</b> Change passwords from a <i>different, clean</i> device.
+  <b>5.</b> Preserve all screenshots and transaction references as evidence.</div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🚀 Getting Started</div></div>
+  <ol style="margin-left:20px;line-height:2.1">
+    <li><b>Install Ollama</b> from <a href="https://ollama.com" target="_blank">ollama.com</a> — free and open source.</li>
+    <li>Run <code>ollama serve</code> in a terminal, then <code>ollama pull llama3.2</code>.</li>
+    <li>Start this platform with <code>python app.py</code> and open <code>http://127.0.0.1:5000</code>.</li>
+    <li>Check the AI status pill in the top-right corner — it should read <b>AI Online</b>.</li>
+    <li>New to the field? Start at <a href="{{ url_for('learn_page') }}">Learning Center → Cyber Safety Essentials</a>.</li>
+  </ol>
+  <div class="alert alert-info mt"><span>💡</span>
+    <div>Ollama is optional. Every detection engine — phishing heuristics, password maths, malware
+    signatures, log detections, forensic parsers — works fully offline without it. The AI adds
+    explanation and nuance on top.</div></div>
+</div>
+
+<div class="grid g2">
+  {% for icon, title, what, how in [
+    ('🛡️','Phishing Detector',
+     'Judges whether a URL, email or SMS is a phishing attempt using 30+ heuristics plus AI.',
+     'Pick the tab matching your content, paste it, and submit. Read the indicators list — each one explains a specific technique the attacker used. Attach the result to a case to record the IOCs.'),
+    ('🔐','Password Analyzer',
+     'Measures true entropy, detects patterns and estimates realistic crack times.',
+     'Type a password to see live scoring, or submit for a full report. Use the generator for strong replacements. Your password is never stored or transmitted.'),
+    ('🦠','Malware Analyzer',
+     'Nine static engines examine a file without ever executing it.',
+     'Upload any file. Check the "true type" against its extension — a mismatch is a major red flag. Record the SHA-256 for your case notes.'),
+    ('💧','Breach Checker',
+     'Tells you which data breaches your email address and passwords are caught up in, like HaveIBeenPwned.',
+     'Enter your email and press Check. It queries real breach databases live (XposedOrNot and LeakCheck are free and need no key; add your own HaveIBeenPwned key in the module\'s Settings tab for authoritative results). You get a clear BREACHED or NOT FOUND verdict with every breach listed.'),
+    ('📁','Cases & Evidence',
+     'Full case management with hashing, chain of custody and integrity verification.',
+     'Create a case, upload artefacts (hashed automatically), then use "Verify Integrity" any time to prove nothing changed. Generate the report when done.'),
+    ('🌐','Browser Forensics',
+     'Parses Chrome/Firefox history, downloads, cookies and login metadata.',
+     'Close the browser, COPY the artefact file, then upload the copy. Never work on the live file. Passwords are never decrypted.'),
+    ('🧠','Memory Forensics',
+     'Carves processes, connections, credentials and injection indicators from a RAM dump.',
+     'Capture RAM with WinPMEM/DumpIt/LiME, or use a VM .vmem file. Upload and review the suspicious processes and network tabs first.'),
+    ('📜','Log Analysis',
+     'Auto-detects the log format and hunts for intrusion patterns.',
+     'Upload or paste. Try the built-in samples to see brute-force and web-attack detection in action. Look up any Windows Event ID for a plain-English explanation.'),
+    ('🤖','AI Assistant',
+     'A local chatbot grounded in a 28-article offline knowledge base.',
+     'Ask anything, or paste a suspicious message. Answers stream live. Works in reduced form even when Ollama is off.'),
+    ('📚','Learning Center',
+     'Six quizzes, nine hands-on labs, a phishing simulator and three learning paths.',
+     'Follow a learning path in order. The labs use the platform\'s own tools, so you learn by doing real analysis.'),
+    ('🧰','Daily Toolkit',
+     'PII scanner, EXIF cleaner, scam detector, QR checker, encoders and a security checkup.',
+     'Use the PII scanner before sharing any log or screenshot. Strip EXIF before posting photos. Run the security checkup monthly.') ] %}
+  <div class="card">
+    <div class="card-head"><div class="card-title">{{ icon }} {{ title }}</div></div>
+    <p class="muted mb"><b>What it does:</b> {{ what }}</p>
+    <p class="small"><b>How to use it:</b> {{ how }}</p>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🔬 Recommended Investigation Workflow</div></div>
+  <div class="tline">
+    {% for step, detail in [
+      ('1. Open a case','Record what happened, who reported it, and set the priority. Everything else attaches here.'),
+      ('2. Preserve evidence first','Upload artefacts before analysing them. Hashing at acquisition is what makes them defensible.'),
+      ('3. Capture volatile data','If a live machine is involved: RAM first, then network state, then disk. Never power off first.'),
+      ('4. Analyse the artefacts','Run each artefact through the matching module with the case selected so IOCs register automatically.'),
+      ('5. Build the timeline','Log analysis feeds the case timeline. Correlate across sources to find the entry point.'),
+      ('6. Verify integrity','Re-hash everything before you report. A clean verification is a strong statement.'),
+      ('7. Generate the report','One click produces the evidence register, custody log, IOCs, timeline and an AI executive summary.'),
+      ('8. Contain and remediate','Ask the AI Assistant for a containment plan appropriate to what you found.') ] %}
+    <div class="tl-item info">
+      <div class="tl-t">{{ step }}</div>
+      <div class="tl-e">{{ detail }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🇮🇳 Emergency Contacts (India)</div></div>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Purpose</th><th>Contact</th></tr></thead>
+      <tbody>
+        <tr><td><b>Cyber financial fraud</b> (call immediately)</td><td class="mono"><b>1930</b></td></tr>
+        <tr><td>National Cyber Crime Reporting Portal</td><td class="mono">cybercrime.gov.in</td></tr>
+        <tr><td>Spam SMS / calls (TRAI)</td><td class="mono">1909</td></tr>
+        <tr><td>Police emergency</td><td class="mono">112</td></tr>
+        <tr><td>Women &amp; child cybercrime</td><td class="mono">cybercrime.gov.in (dedicated section)</td></tr>
+        <tr><td>CERT-In (organisations)</td><td class="mono">incident@cert-in.org.in</td></tr>
+        <tr><td>Free ransomware decryptors</td><td class="mono">nomoreransom.org</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">⚖️ Legal &amp; Ethical Use</div></div>
+    <div class="alert alert-warn"><span>⚠️</span>
+      <div><b>Only examine systems and data you own or are formally authorised to examine.</b>
+      Unauthorised access to a computer or its data is a criminal offence under the Information
+      Technology Act, 2000 in India, and under equivalent laws elsewhere.</div></div>
+    <div class="alert alert-info"><span>🎓</span>
+      <div>This platform is built for education, personal safety and authorised investigation. It
+      is deliberately defensive: it contains no exploit code, no attack tooling, and the AI refuses
+      to produce malware.</div></div>
+    <div class="alert alert-info"><span>📋</span>
+      <div>For evidence intended for court, findings from this educational tool should be
+      reproduced and corroborated by a certified forensic examiner using validated commercial or
+      established open-source tooling.</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🛠️ Troubleshooting</div></div>
+  <div class="grid g2">
+    {% for q, a in [
+      ('The AI pill says "Offline"','Run <code>ollama serve</code> in a terminal and confirm <code>ollama list</code> shows a model. Then check the host URL in Settings.'),
+      ('Ollama is running but responses are very slow','A 3B model on CPU takes 10–40 seconds per answer. That is normal. Untick "Use local AI" for instant rule-only results.'),
+      ('Upload fails with "File too large"','Increase the limit: <code>MAX_UPLOAD_MB=2048 python app.py</code>.'),
+      ('Browser artefact will not parse','Close the browser completely, then copy the file. The browser locks its SQLite databases while running.'),
+      ('AI returns an unparseable JSON error','Small models occasionally produce malformed JSON. Just re-run the analysis, or switch to a larger model like llama3.1:8b.'),
+      ('I want to start completely fresh','Stop the app, delete <code>data/cybersafe.db</code>, and restart. Evidence files live in <code>data/evidence/</code>.') ] %}
+    <div class="finding info">
+      <span class="f-icon">❓</span>
+      <div class="f-body"><div class="f-title">{{ q }}</div><div class="f-detail">{{ a|safe }}</div></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}

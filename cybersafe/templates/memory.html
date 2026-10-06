@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, risk_panel, findings_list, ai_block, ioc_table, case_selector, ai_toggle, empty_state with context %}
+{% block title %}Memory Forensics — {{ APP_NAME }}{% endblock %}
+{% block page_title %}🧠 Memory Forensics{% endblock %}
+{% block page_sub %}Carve processes, connections, credentials and injected code from a RAM image{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="card-head"><div class="card-title">📤 Load a Memory Image</div></div>
+  <form method="post" enctype="multipart/form-data" data-loading>
+    <div class="field">
+      <label>RAM dump (.raw, .mem, .dmp, .vmem, .lime — max {{ (config.MAX_CONTENT_LENGTH / 1048576)|int }} MB)</label>
+      <input type="file" name="file" required>
+    </div>
+    <div class="alert alert-info"><span>📋</span>
+      <div><b>How to capture RAM:</b> Windows — WinPMEM, DumpIt or FTK Imager (Capture Memory).
+      Linux — LiME kernel module or <code>/proc/kcore</code>. VMs — suspend the guest and take the
+      <code>.vmem</code> / <code>.vmss</code> file (this is the cleanest method for practice).
+      Always write the image to <b>external</b> media, never the machine being investigated.</div></div>
+    {{ case_selector(open_cases) }}
+    {{ ai_toggle() }}
+    <button type="submit" class="btn mt" data-loading="Carving…">🔬 Analyse Memory Image</button>
+    <span class="dim small hidden" data-loading-note>Large dumps take time — up to 400 MB is analysed.</span>
+  </form>
+</div>
+
+{% if result %}
+
+{{ risk_panel(result.risk_score, 'Memory Risk: ' ~ result.band|title,
+   'Analysed ' ~ result.analyzed_human ~ ' of a ' ~ result.file_size_human ~ ' image. Found ' ~
+   result.suspicious_processes|length ~ ' suspicious process artefact(s), ' ~
+   result.connections|length ~ ' network artefact(s), ' ~ result.signatures|length ~
+   ' malware signature(s) and ' ~ result.credentials|length ~ ' credential artefact type(s).') }}
+
+{% if result.truncated %}
+<div class="alert alert-warn"><span>⚠️</span>
+  <div>Only the first {{ result.analyzed_human }} of this image was analysed for performance.
+  Findings beyond that point were not examined.</div></div>
+{% endif %}
+
+<div class="alert alert-info"><span>🎓</span><div>{{ result.note }}</div></div>
+
+<div class="tabs" data-tabs data-scope="#memPanes">
+  <button class="tab active" data-tab="find">Findings ({{ result.findings|length }})</button>
+  <button class="tab" data-tab="proc">Processes ({{ result.processes|length }})</button>
+  <button class="tab" data-tab="net">Network ({{ result.connections|length }})</button>
+  <button class="tab" data-tab="cmd">Commands ({{ result.command_lines|length + result.powershell_commands|length }})</button>
+  <button class="tab" data-tab="cred">Credentials ({{ result.credentials|length }})</button>
+  <button class="tab" data-tab="pers">Persistence ({{ result.persistence|length }})</button>
+  <button class="tab" data-tab="mod">Modules ({{ result.modules|length }})</button>
+  <button class="tab" data-tab="ioc">IOCs</button>
+</div>
+
+<div id="memPanes">
+  <div class="tabpane active" data-pane="find">
+    <div class="card">{{ findings_list(result.findings, 40, 'No malicious artefacts detected in this image.') }}</div>
+    {{ ai_block(result.ai, 'AI Memory Analysis') }}
+  </div>
+
+  <div class="tabpane" data-pane="proc">
+    <div class="card">
+      <div class="card-head"><div class="card-title">⚙️ Carved Process Names</div>
+        <span class="dim xs">Sorted by suspicion, then frequency</span></div>
+      {% if result.suspicious_processes %}
+      <div class="card-title" style="font-size:13px">🚨 Suspicious</div>
+      <div class="tbl-wrap mt-s mb">
+      <table>
+        <thead><tr><th>Process</th><th>Severity</th><th>Occurrences</th><th>Why flagged</th></tr></thead>
+        <tbody>
+        {% for p in result.suspicious_processes %}
+        <tr><td class="mono"><b>{{ p.name }}</b></td><td>{{ badge(p.severity) }}</td>
+            <td class="mono">{{ p.occurrences }}</td><td class="small">{{ p.flags|join('; ') }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% endif %}
+      <div class="card-title" style="font-size:13px">All carved process names</div>
+      <div class="tbl-wrap mt-s">
+      <table>
+        <thead><tr><th>Process</th><th>Occurrences</th><th>Notes</th></tr></thead>
+        <tbody>
+        {% for p in result.processes %}
+        <tr><td class="mono {{ 'crit-t' if p.severity=='critical' else 'high-t' if p.severity=='high' }}">{{ p.name }}</td>
+            <td class="mono">{{ p.occurrences }}</td>
+            <td class="small dim">{{ p.flags|join('; ') or '—' }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="alert alert-info mt"><span>🔎</span>
+        <div><b>Masquerade check:</b> look for <code>svch0st.exe</code> (zero for o),
+        <code>lsasss.exe</code>, <code>explore.exe</code> or <code>scvhost.exe</code>. Legitimate
+        Windows processes have exact, well-known names.</div></div>
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="net">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🌐 Network Artefacts</div></div>
+      {% if result.connections %}
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>IP</th><th>Port</th><th>Scope</th><th>Occurrences</th><th>Notes</th></tr></thead>
+        <tbody>
+        {% for c in result.connections %}
+        <tr><td class="mono">{{ c.ip }}</td>
+            <td class="mono {{ 'crit-t' if c.severity=='critical' }}">{{ c.port }}</td>
+            <td>{{ badge('medium' if c.scope=='external' else 'info', c.scope) }}</td>
+            <td class="mono">{{ c.count }}</td>
+            <td class="small">{{ c.note or '—' }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="alert alert-warn mt"><span>🚩</span>
+        <div><b>Watch these ports:</b> 4444/4445 (Metasploit), 1337 & 31337 (backdoors),
+        50050 (Cobalt Strike team server), 6667 (IRC botnet), 9001/9050 (Tor).</div></div>
+      {% else %}{{ empty_state('🌐','No network artefacts carved') }}{% endif %}
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="cmd">
+    <div class="card">
+      {% if result.malicious_commands %}
+      <div class="card-head"><div class="card-title">🚨 Suspicious Command Lines</div></div>
+      <div class="pre mb">{% for c in result.malicious_commands %}{{ c }}
+{% endfor %}</div>
+      {% endif %}
+      {% if result.powershell_commands %}
+      <div class="card-head"><div class="card-title">💠 PowerShell Commands</div></div>
+      <div class="pre mb">{% for c in result.powershell_commands %}{{ c }}
+{% endfor %}</div>
+      {% endif %}
+      {% if result.command_lines %}
+      <div class="card-head"><div class="card-title">📋 All Recovered Command Lines</div></div>
+      <div class="pre">{% for c in result.command_lines %}{{ c }}
+{% endfor %}</div>
+      {% else %}{{ empty_state('📋','No command lines recovered') }}{% endif %}
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="cred">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔑 Credential Material in Memory</div></div>
+      {% if result.credentials %}
+      <div class="alert alert-err"><span>🚨</span>
+        <div><b>Credentials are recoverable from this memory image.</b> This is exactly why RAM is
+        such valuable evidence — and exactly why memory images must be stored as securely as the
+        systems they came from.</div></div>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>Severity</th><th>Count</th><th>Redacted sample</th></tr></thead>
+        <tbody>
+        {% for c in result.credentials %}
+        <tr><td><b>{{ c.type }}</b></td><td>{{ badge(c.severity) }}</td>
+            <td class="mono">{{ c.count }}</td><td class="mono xs">{{ c.sample }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}{{ empty_state('✅','No credential material detected') }}{% endif %}
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="pers">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔗 Persistence Artefacts</div></div>
+      {% if result.persistence %}
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Mechanism</th><th>Severity</th><th>References</th></tr></thead>
+        <tbody>
+        {% for p in result.persistence %}
+        <tr><td>{{ p.mechanism }}</td><td>{{ badge(p.severity) }}</td><td class="mono">{{ p.hits }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}{{ empty_state('✅','No persistence artefacts found') }}{% endif %}
+
+      {% if result.injection_indicators %}
+      <div class="card-title mt" style="font-size:13px">💉 Code-Injection Indicators</div>
+      <div class="tbl-wrap mt-s">
+      <table>
+        <thead><tr><th>Indicator</th><th>Occurrences</th></tr></thead>
+        <tbody>
+        {% for i in result.injection_indicators %}
+        <tr><td>{{ i.indicator }}</td><td class="mono">{{ i.hits }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="dim xs mt-s">Three or more of these together strongly suggest process injection
+      or hollowing (MITRE ATT&CK T1055).</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="mod">
+    <div class="card">
+      <div class="card-head"><div class="card-title">📦 Notable Loaded Modules</div>
+        <span class="dim xs">{{ result.all_modules_count }} distinct DLL names carved</span></div>
+      {% if result.modules %}
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Module</th><th>Occurrences</th><th>Note</th></tr></thead>
+        <tbody>
+        {% for m in result.modules %}
+        <tr><td class="mono">{{ m.module }}</td><td class="mono">{{ m.occurrences }}</td>
+            <td class="small">{{ m.note }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}{{ empty_state('📦','No notable modules') }}{% endif %}
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="ioc">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🎯 Indicators Extracted from Memory</div></div>
+      {{ ioc_table(result.iocs) }}
+    </div>
+  </div>
+</div>
+
+{% else %}
+
+<div class="grid g2">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🧠 Why Memory Matters Most</div></div>
+    {% for icon, t, d in [
+      ('⚙️','Running processes','Including fileless malware that exists only in RAM and leaves no file on disk.'),
+      ('🌐','Live connections','Active C2 channels that vanish the moment you pull the power.'),
+      ('💉','Injected code','Malicious code hidden inside legitimate processes like explorer.exe.'),
+      ('🔑','Cleartext secrets','Passwords, tokens and encryption keys that are encrypted on disk but plain in RAM.'),
+      ('📋','Command history','Exactly what the attacker typed and executed.'),
+      ('🔓','Decrypted content','Ransomware keys, chat messages and documents in their decrypted state.') ] %}
+    <div class="finding info"><span class="f-icon">{{ icon }}</span>
+      <div class="f-body"><div class="f-title">{{ t }}</div><div class="f-detail">{{ d }}</div></div></div>
+    {% endfor %}
+    <div class="alert alert-warn mt"><span>⚡</span>
+      <div><b>Order of volatility:</b> RAM first, then network state, then disk, then backups.
+      Powering off a machine destroys the most valuable evidence you will ever have.</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">🔬 What This Module Detects</div></div>
+    <div class="chips mb">
+      {% for c in ['Process masquerading','Hacking tools','LOLBin abuse','C2 ports',
+                   'Encoded PowerShell','Reverse shells','Credential material','NTLM hashes',
+                   'Private keys','JWT tokens','Registry persistence','WMI persistence',
+                   'Cron/systemd persistence','Process injection APIs','Process hollowing',
+                   'Cobalt Strike','Meterpreter','Mimikatz','Ransomware notes','Crypto miners',
+                   'Tor references','Telegram/Discord exfil'] %}
+      <span class="chip on">{{ c }}</span>{% endfor %}
+    </div>
+    <div class="alert alert-info"><span>🎓</span>
+      <div><b>How this differs from Volatility.</b> Volatility reconstructs kernel structures using
+      symbol profiles, giving an authoritative process tree. This module carves strings and patterns
+      instead — it works on <i>any</i> dump with zero setup, which is perfect for learning, but its
+      output should be treated as investigative leads rather than proof.</div></div>
+    <div class="alert alert-ok"><span>🧪</span>
+      <div><b>No dump available?</b> Suspend a VM and use its <code>.vmem</code> file, or generate
+      the practice image described in the project README.</div></div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

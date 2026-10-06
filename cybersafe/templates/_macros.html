@@ -1,0 +1,173 @@
+{# ============ Reusable UI macros ============ #}
+
+{% macro sev_icon(sev) %}{% if sev=='critical' %}🔴{% elif sev=='high' %}🟠{% elif sev=='medium' %}🟡{% elif sev=='low' %}🟢{% elif sev=='good' %}✅{% else %}🔵{% endif %}{% endmacro %}
+
+{% macro badge(sev, text='') %}
+<span class="badge b-{{ sev|default('info') }}">{{ text or sev }}</span>
+{% endmacro %}
+
+{% macro gauge(score, size=104) %}
+{% set r = (size/2 - 8)|round(2) %}
+{% set c = (2 * 3.14159265 * r)|round(2) %}
+{% set off = (c - (score|float / 100) * c)|round(2) %}
+{% set col = '#ef4444' if score>=80 else '#f97316' if score>=55 else '#eab308' if score>=25 else '#22c55e' %}
+<div class="gauge" style="width:{{ size }}px;height:{{ size }}px">
+  <svg width="{{ size }}" height="{{ size }}">
+    <circle cx="{{ size/2 }}" cy="{{ size/2 }}" r="{{ r }}" fill="none"
+            stroke="rgba(255,255,255,.08)" stroke-width="8"/>
+    <circle cx="{{ size/2 }}" cy="{{ size/2 }}" r="{{ r }}" fill="none" stroke="{{ col }}"
+            stroke-width="8" stroke-linecap="round"
+            stroke-dasharray="{{ c }}" stroke-dashoffset="{{ off }}"/>
+  </svg>
+  <div class="gauge-t">
+    <div class="gauge-n" style="color:{{ col }}">{{ score }}</div>
+    <div class="gauge-l">/ 100</div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro risk_panel(score, verdict, description) %}
+{% set band = 'critical' if score>=80 else 'high' if score>=55 else 'medium' if score>=25 else 'low' %}
+<div class="risk {{ band }}">
+  {{ gauge(score) }}
+  <div class="risk-info">
+    <div class="risk-verdict">{{ verdict }}</div>
+    <div class="risk-desc">{{ description }}</div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro findings_list(findings, limit=50, empty_msg='No issues detected.') %}
+{% if findings %}
+  {% for f in findings[:limit] %}
+  <div class="finding {{ f.severity }}">
+    <span class="f-icon">{{ sev_icon(f.severity) }}</span>
+    <div class="f-body">
+      <div class="f-title">{{ f.title }}</div>
+      <div class="f-detail">{{ f.detail }}</div>
+    </div>
+    {% if f.points and f.points > 0 %}<span class="f-pts">+{{ f.points }}</span>{% endif %}
+  </div>
+  {% endfor %}
+  {% if findings|length > limit %}
+  <div class="dim small tc mt-s">… and {{ findings|length - limit }} more finding(s)</div>
+  {% endif %}
+{% else %}
+  <div class="alert alert-ok"><span>✅</span><div>{{ empty_msg }}</div></div>
+{% endif %}
+{% endmacro %}
+
+{% macro ai_block(ai, title='AI Analysis') %}
+{% if ai and ai.available %}
+<div class="ai-box">
+  <div class="ai-head">🤖 {{ title }}</div>
+  <div class="ai-body">
+    <div class="flex mb">
+      {% if ai.verdict %}<span class="badge b-info">Verdict: {{ ai.verdict }}</span>{% endif %}
+      {% if ai.assessment %}<span class="badge b-info">{{ ai.assessment }}</span>{% endif %}
+      {% if ai.severity %}<span class="badge b-{{ ai.severity if ai.severity in ['critical','high','medium','low'] else 'info' }}">{{ ai.severity }}</span>{% endif %}
+      {% if ai.risk_assessment %}<span class="badge b-{{ ai.risk_assessment if ai.risk_assessment in ['critical','high','medium','low'] else 'info' }}">{{ ai.risk_assessment }}</span>{% endif %}
+      {% if ai.likely_family and ai.likely_family != 'unknown' %}<span class="badge b-high">Family: {{ ai.likely_family }}</span>{% endif %}
+      {% if ai.confidence %}<span class="badge b-info">{{ ai.confidence }}% confidence</span>{% endif %}
+      {% if ai.incident_detected is defined %}<span class="badge b-{{ 'critical' if ai.incident_detected else 'low' }}">{{ 'Incident detected' if ai.incident_detected else 'No incident' }}</span>{% endif %}
+    </div>
+
+    {% set body = ai.reasoning or ai.explanation or ai.summary or ai.behaviour_summary or ai.text %}
+    {% if body %}<p>{{ body }}</p>{% endif %}
+    {% if ai.victim_impact %}<p><strong>If you comply:</strong> {{ ai.victim_impact }}</p>{% endif %}
+    {% if ai.biggest_risk %}<p><strong>Biggest risk:</strong> {{ ai.biggest_risk }}</p>{% endif %}
+    {% if ai.attack_narrative and ai.attack_narrative|lower != 'no attack observed' %}
+      <div class="ai-list"><div class="ai-list-t">Attack narrative</div><p>{{ ai.attack_narrative }}</p></div>
+    {% endif %}
+    {% if ai.assessment and body != ai.assessment and ai.assessment|length > 30 %}
+      <p>{{ ai.assessment }}</p>
+    {% endif %}
+    {% if ai.evidence_quality %}<p><strong>Evidence quality:</strong> {{ ai.evidence_quality }}</p>{% endif %}
+
+    {% for key, label in [
+        ('red_flags','Red flags'), ('tactics','Tactics used'),
+        ('capabilities','Capabilities'), ('attack_techniques','Attack techniques'),
+        ('compromise_indicators','Compromise indicators'), ('key_findings','Key findings'),
+        ('key_artefacts','Key artefacts'), ('affected_assets','Affected assets'),
+        ('likely_attacks','Attacks to expect now'), ('do_today','Do today'),
+        ('do_this_week','Do this week'), ('long_term','Long-term habits'),
+        ('recommended_actions','Recommended actions'), ('analyst_next_steps','Analyst next steps'),
+        ('next_steps','Next steps'), ('investigative_next_steps','Investigative next steps'),
+        ('immediate_actions','Immediate actions'), ('containment','Containment'),
+        ('hardening_recommendations','Hardening recommendations'), ('user_advice','User advice') ] %}
+      {% set items = ai[key] %}
+      {% if items %}
+      <div class="ai-list">
+        <div class="ai-list-t">{{ label }}</div>
+        <ul>{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  <div class="ai-meta">Generated locally by Ollama model <code>{{ ai.model or 'local' }}</code>
+    — nothing was sent to the internet.</div>
+</div>
+{% elif ai is not none %}
+<div class="alert alert-info">
+  <span>🤖</span>
+  <div><b>AI layer unavailable.</b> The findings above come from the deterministic rule engines,
+  which are fully reliable on their own. Start Ollama for AI commentary.</div>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro ioc_table(iocs) %}
+{% if iocs and iocs.total %}
+<div class="tbl-wrap">
+<table>
+  <thead><tr><th style="width:130px">Type</th><th>Indicators</th></tr></thead>
+  <tbody>
+  {% for key, label in [('urls','URLs'),('domains','Domains'),('ips','IP addresses'),
+                        ('emails','Emails'),('bitcoin','Bitcoin wallets'),('upi_ids','UPI IDs'),
+                        ('phones','Phone numbers'),('md5','MD5 hashes'),('sha256','SHA-256 hashes')] %}
+    {% if iocs[key] %}
+    <tr>
+      <td><b>{{ label }}</b> <span class="dim xs">({{ iocs[key]|length }})</span></td>
+      <td class="t-mono">{{ iocs[key][:20]|join(', ') }}{% if iocs[key]|length > 20 %} …{% endif %}</td>
+    </tr>
+    {% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty"><div class="empty-i">🔍</div><div class="empty-t">No indicators extracted</div></div>
+{% endif %}
+{% endmacro %}
+
+{% macro case_selector(cases, label='Attach result to case (optional)') %}
+{% if cases %}
+<div class="field">
+  <label>{{ label }}</label>
+  <select name="case_id">
+    <option value="">— Do not attach —</option>
+    {% for c in cases %}<option value="{{ c.id }}">{{ c.case_number }} — {{ c.title }}</option>{% endfor %}
+  </select>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro ai_toggle(online=None) %}
+{# `online` falls back to the global when the macro is imported "with context". #}
+{% set is_on = online if online is not none else ollama_online %}
+{# Hidden field first so an UNCHECKED box still submits use_ai=0. #}
+<input type="hidden" name="use_ai" value="0">
+<label class="check mt-s">
+  <input type="checkbox" name="use_ai" value="1" {{ 'checked' if is_on else '' }}
+         {{ 'disabled' if not is_on else '' }}>
+  <span>Use local AI for deeper analysis {% if not is_on %}<span class="dim">(Ollama offline)</span>{% endif %}</span>
+</label>
+{% endmacro %}
+
+{% macro empty_state(icon, title, sub='') %}
+<div class="empty">
+  <div class="empty-i">{{ icon }}</div>
+  <div class="empty-t">{{ title }}</div>
+  {% if sub %}<div class="empty-s">{{ sub }}</div>{% endif %}
+</div>
+{% endmacro %}

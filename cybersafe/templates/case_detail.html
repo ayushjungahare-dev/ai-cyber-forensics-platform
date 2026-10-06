@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty_state with context %}
+{% block title %}{{ case.case_number }} — {{ APP_NAME }}{% endblock %}
+{% block page_title %}{{ case.case_number }}{% endblock %}
+{% block page_sub %}{{ case.title }}{% endblock %}
+{% block topbar_extra %}
+<a href="{{ url_for('report_case', case_id=case.id) }}" target="_blank" class="btn btn-sm">📄 Generate Report</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid g5 mb">
+  <div class="stat"><div class="stat-i">🗂️</div><div class="stat-v">{{ case.evidence_count }}</div><div class="stat-l">Evidence</div></div>
+  <div class="stat"><div class="stat-i">💾</div><div class="stat-v" style="font-size:20px">{{ case.total_size }}</div><div class="stat-l">Data Volume</div></div>
+  <div class="stat"><div class="stat-i">🔗</div><div class="stat-v">{{ case.custody_count }}</div><div class="stat-l">Custody Events</div></div>
+  <div class="stat"><div class="stat-i">🎯</div><div class="stat-v">{{ case.ioc_count }}</div><div class="stat-l">IOCs</div></div>
+  <div class="stat {{ 'crit' if case.integrity_issues else 'good' }}"><div class="stat-i">🔒</div>
+    <div class="stat-v">{{ case.integrity_issues }}</div><div class="stat-l">Integrity Failures</div></div>
+</div>
+
+<div class="tabs" data-tabs data-scope="#casePanes">
+  <button class="tab active" data-tab="ev">🗂️ Evidence ({{ evidence|length }})</button>
+  <button class="tab" data-tab="cust">🔗 Chain of Custody ({{ custody|length }})</button>
+  <button class="tab" data-tab="tl">⏱️ Timeline ({{ timeline|length }})</button>
+  <button class="tab" data-tab="ioc">🎯 IOCs ({{ iocs|length }})</button>
+  <button class="tab" data-tab="an">🔬 Analyses ({{ scans|length }})</button>
+  <button class="tab" data-tab="info">ℹ️ Case Details</button>
+</div>
+
+<div id="casePanes">
+
+  <!-- ===== evidence ===== -->
+  <div class="tabpane active" data-pane="ev">
+    <div class="card">
+      <div class="card-head"><div class="card-title">➕ Add Evidence</div>
+        <span class="dim xs">Files are hashed at acquisition and stored in the case vault</span></div>
+      <form method="post" action="{{ url_for('evidence_add', case_id=case.id) }}" enctype="multipart/form-data" data-loading>
+        <div class="field"><label>File *</label><input type="file" name="file" required></div>
+        <div class="row">
+          <div class="field"><label>Evidence name</label>
+            <input type="text" name="name" placeholder="Defaults to the filename"></div>
+          <div class="field"><label>Type</label>
+            <select name="evidence_type">
+              {% for t in evidence_types %}<option value="{{ t }}">{{ t|title }}</option>{% endfor %}
+            </select></div>
+          <div class="field"><label>Collected by</label>
+            <input type="text" name="collected_by" placeholder="Your name"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Source / where it came from</label>
+            <input type="text" name="source" placeholder="e.g. Victim's laptop, C:\Users\rahul\Downloads"></div>
+          <div class="field"><label>Tags (comma separated)</label>
+            <input type="text" name="tags" placeholder="phishing, email, screenshot"></div>
+        </div>
+        <div class="field"><label>Description</label>
+          <textarea name="description" rows="2" placeholder="What this artefact is and why it matters"></textarea></div>
+        <button type="submit" class="btn" data-loading="Acquiring…">Acquire Evidence</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">🗂️ Evidence Register</div>
+        <button class="btn btn-ghost btn-sm" onclick="verifyAll()">🔒 Verify All Integrity</button>
+      </div>
+      <div id="verifyOut"></div>
+      {% if evidence %}
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Name</th><th>Type</th><th>Size</th><th>Collected</th>
+          <th>Integrity</th><th>SHA-256</th><th></th></tr></thead>
+        <tbody>
+        {% for e in evidence %}
+        <tr>
+          <td class="mono">{{ e.id }}</td>
+          <td><a href="{{ url_for('evidence_detail', eid=e.id) }}"><b>{{ e.name }}</b></a>
+            {% if e.tag_list %}<div class="chips mt-s">{% for t in e.tag_list %}<span class="chip xs">{{ t }}</span>{% endfor %}</div>{% endif %}
+          </td>
+          <td class="small">{{ e.evidence_type }}</td>
+          <td class="mono nowrap">{{ e.size_human }}</td>
+          <td class="dim xs nowrap">{{ e.collected_at[:16] }}<br>{{ e.collected_by }}</td>
+          <td>{{ badge('low','intact') if e.verified else badge('critical','MISMATCH') }}</td>
+          <td class="t-mono xs" style="max-width:180px">{{ e.sha256[:24] }}…</td>
+          <td class="nowrap"><a href="{{ url_for('evidence_detail', eid=e.id) }}" class="btn btn-ghost btn-xs">Open</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+        {{ empty_state('🗂️','No evidence yet','Upload the first artefact using the form above.') }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ===== custody ===== -->
+  <div class="tabpane" data-pane="cust">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔗 Chain of Custody Log</div></div>
+      <div class="alert alert-info"><span>⚖️</span>
+        <div>This is the complete, immutable record of every interaction with the evidence in this
+        case. In a legal context, an unbroken chain of custody is what makes digital evidence
+        admissible.</div></div>
+      {% if custody %}
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Timestamp (UTC)</th><th>Evidence</th><th>Action</th><th>Actor</th>
+          <th>Integrity</th><th>Notes</th></tr></thead>
+        <tbody>
+        {% for c in custody %}
+        <tr>
+          <td class="t-mono nowrap">{{ c.ts }}</td>
+          <td class="small">#{{ c.eid }} {{ c.evidence_name }}</td>
+          <td>{{ badge('info', c.action) }}</td>
+          <td class="small">{{ c.actor }}</td>
+          <td>{{ badge('low','intact') if c.integrity=='intact' else badge('critical', c.integrity) }}</td>
+          <td class="small">{{ c.notes }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}{{ empty_state('🔗','No custody events yet') }}{% endif %}
+    </div>
+  </div>
+
+  <!-- ===== timeline ===== -->
+  <div class="tabpane" data-pane="tl">
+    <div class="card">
+      <div class="card-head"><div class="card-title">⏱️ Investigation Timeline</div></div>
+      {% if timeline %}
+      <div class="tline">
+        {% for t in timeline %}
+        <div class="tl-item {{ t.severity }}">
+          <div class="tl-t">{{ t.ts }} · {{ t.source }}</div>
+          <div class="tl-e">{{ t.event }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}{{ empty_state('⏱️','No timeline entries yet','Events appear here as you work the case.') }}{% endif %}
+    </div>
+  </div>
+
+  <!-- ===== iocs ===== -->
+  <div class="tabpane" data-pane="ioc">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🎯 Indicators of Compromise</div>
+        <span class="dim xs">Auto-collected from analyses attached to this case</span></div>
+      {% if iocs %}
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>Indicator</th><th>Source module</th><th>Confidence</th><th>First seen</th></tr></thead>
+        <tbody>
+        {% for i in iocs %}
+        <tr><td>{{ badge('info', i.ioc_type) }}</td>
+            <td class="t-mono">{{ i.value }}</td>
+            <td class="small">{{ i.source_module }}</td>
+            <td class="mono">{{ i.confidence }}%</td>
+            <td class="dim xs">{{ i.first_seen[:16] }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+        {{ empty_state('🎯','No IOCs registered','Run an analysis with this case selected, or use "Extract IOCs" on a text evidence item.') }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ===== analyses ===== -->
+  <div class="tabpane" data-pane="an">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔬 Analyses Attached to This Case</div></div>
+      {% if scans %}
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>When</th><th>Module</th><th>Target</th><th>Risk</th><th>Verdict</th><th>Summary</th><th></th></tr></thead>
+        <tbody>
+        {% for s in scans %}
+        <tr>
+          <td class="dim xs nowrap">{{ s.created_at[5:16] }}</td>
+          <td><b>{{ s.module|title }}</b></td>
+          <td class="t-mono trunc" style="max-width:180px">{{ s.target[:50] }}</td>
+          <td>{{ badge(s.risk_score|band, s.risk_score|string) }}</td>
+          <td class="small">{{ s.verdict }}</td>
+          <td class="small">{{ s.summary[:120] }}</td>
+          <td><a href="{{ url_for('history_detail', sid=s.id) }}" class="btn btn-ghost btn-xs">View</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+        {{ empty_state('🔬','No analyses attached','Select this case in the dropdown when running a Phishing, Malware, Log, Browser or Memory analysis.') }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ===== case info ===== -->
+  <div class="tabpane" data-pane="info">
+    <div class="grid g2">
+      <div class="card">
+        <div class="card-head"><div class="card-title">✏️ Edit Case</div></div>
+        <form method="post" action="{{ url_for('case_update', case_id=case.id) }}">
+          <div class="field"><label>Title</label><input type="text" name="title" value="{{ case.title }}"></div>
+          <div class="row">
+            <div class="field"><label>Status</label>
+              <select name="status">
+                {% for s in ['open','in_progress','closed'] %}
+                <option value="{{ s }}" {{ 'selected' if case.status==s }}>{{ s|replace('_',' ')|title }}</option>
+                {% endfor %}
+              </select></div>
+            <div class="field"><label>Priority</label>
+              <select name="priority">
+                {% for p in ['low','medium','high','critical'] %}
+                <option value="{{ p }}" {{ 'selected' if case.priority==p }}>{{ p|title }}</option>
+                {% endfor %}
+              </select></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Incident type</label>
+              <select name="incident_type">
+                {% for t in incident_types %}<option {{ 'selected' if case.incident_type==t }}>{{ t }}</option>{% endfor %}
+              </select></div>
+            <div class="field"><label>Investigator</label>
+              <input type="text" name="investigator" value="{{ case.investigator or '' }}"></div>
+          </div>
+          <div class="field"><label>Description</label>
+            <textarea name="description" rows="5">{{ case.description or '' }}</textarea></div>
+          <button type="submit" class="btn">Save Changes</button>
+        </form>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">📊 Case Metadata</div></div>
+          <dl class="kv">
+            <dt>Case number</dt><dd>{{ case.case_number }}</dd>
+            <dt>Created</dt><dd>{{ case.created_at }}</dd>
+            <dt>Last updated</dt><dd>{{ case.updated_at }}</dd>
+            {% if case.closed_at %}<dt>Closed</dt><dd>{{ case.closed_at }}</dd>{% endif %}
+            <dt>Evidence vault</dt><dd class="xs">data/evidence/{{ case.case_number }}/</dd>
+          </dl>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title">📄 Export</div></div>
+          <div class="btn-group">
+            <a href="{{ url_for('report_case', case_id=case.id) }}" target="_blank" class="btn">📄 View HTML report</a>
+            <a href="{{ url_for('report_case', case_id=case.id, download=1) }}" class="btn btn-ghost">⬇️ Download HTML</a>
+            <a href="{{ url_for('report_case_md', case_id=case.id) }}" class="btn btn-ghost">⬇️ Download Markdown</a>
+            <a href="{{ url_for('report_case', case_id=case.id, ai=0) }}" target="_blank" class="btn btn-ghost">Report without AI</a>
+          </div>
+          <div class="dim xs mt-s">Open the HTML report and use your browser's Print → Save as PDF
+          to produce a PDF copy.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title">🗑️ Danger Zone</div></div>
+          <form method="post" action="{{ url_for('case_delete', case_id=case.id) }}"
+                onsubmit="return confirm('Delete this case and ALL its evidence files permanently? This cannot be undone.')">
+            <button type="submit" class="btn btn-danger btn-sm">Delete case and all evidence</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function verifyAll(){
+  const out = document.getElementById('verifyOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Re-hashing all evidence…</div></div>';
+  const r = await postJSON('{{ url_for("case_verify_all", case_id=case.id) }}', {});
+  const ok = r.failed === 0;
+  out.innerHTML = '<div class="alert ' + (ok ? 'alert-ok' : 'alert-err') + '"><span>' +
+    (ok ? '✅' : '🚨') + '</span><div><b>' + r.intact + ' of ' + r.total +
+    ' item(s) verified intact.</b>' +
+    (ok ? ' Every hash matches its acquisition baseline.'
+        : ' <b>' + r.failed + ' FAILED</b> — those items may have been modified. Check the custody log.') +
+    '</div></div>';
+  if (!ok) setTimeout(() => location.reload(), 2200);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+data/cybersafe.db
+data/cybersafe.db-wal
+data/cybersafe.db-shm
+data/evidence/*
+data/reports/*
+data/uploads/*
+!data/**/.gitkeep
+.env
+.DS_Store

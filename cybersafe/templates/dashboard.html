@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, gauge, empty_state with context %}
+{% block title %}Dashboard — {{ APP_NAME }}{% endblock %}
+{% block page_title %}Security Dashboard{% endblock %}
+{% block page_sub %}Overview of threats, investigations, evidence and learning progress{% endblock %}
+
+{% block content %}
+
+<!-- ===== headline stats ===== -->
+<div class="grid g4 mb">
+  <div class="stat {{ 'crit' if risk_dist.critical else 'good' }}">
+    <div class="stat-i">🚨</div>
+    <div class="stat-v">{{ risk_dist.critical + risk_dist.high }}</div>
+    <div class="stat-l">Threats Detected</div>
+  </div>
+  <div class="stat">
+    <div class="stat-i">📁</div>
+    <div class="stat-v">{{ stats.cases_open + stats.cases_progress }}</div>
+    <div class="stat-l">Active Investigations</div>
+  </div>
+  <div class="stat">
+    <div class="stat-i">🗂️</div>
+    <div class="stat-v">{{ stats.evidence_total }}</div>
+    <div class="stat-l">Evidence Items</div>
+  </div>
+  <div class="stat {{ 'crit' if stats.integrity_failures else 'good' }}">
+    <div class="stat-i">🔒</div>
+    <div class="stat-v">{{ stats.integrity_failures }}</div>
+    <div class="stat-l">Integrity Failures</div>
+  </div>
+</div>
+
+<div class="grid g2">
+
+  <!-- ===== risk posture ===== -->
+  <div class="card">
+    <div class="card-head"><div class="card-title">🎯 Overall Risk Posture</div>
+      <span class="dim xs">{{ total_scans }} analyses</span></div>
+    {% if total_scans %}
+    <div class="flex" style="gap:26px;align-items:center">
+      {{ gauge(overall_risk, 118) }}
+      <div style="flex:1;min-width:190px">
+        {% for k, col, lbl in [('critical','critical','Critical'),('high','high','High'),
+                               ('medium','medium','Medium'),('low','low','Low / Safe')] %}
+        <div class="mb" style="margin-bottom:9px">
+          <div class="flex-between xs" style="margin-bottom:3px">
+            <span>{{ lbl }}</span><span class="mono">{{ risk_dist[k] }}</span>
+          </div>
+          <div class="bar"><div class="bar-f {{ col }}" data-w="{{ (risk_dist[k]/total_scans*100)|round(1) }}" style="width:0"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+      {{ empty_state('📊','No analyses yet','Run a scan from any module to populate the dashboard.') }}
+    {% endif %}
+  </div>
+
+  <!-- ===== recommendations ===== -->
+  <div class="card">
+    <div class="card-head"><div class="card-title">💡 Security Recommendations</div></div>
+    {% for r in recommendations %}
+    <div class="finding {{ r.severity }}">
+      <span class="f-icon">{{ r.icon }}</span>
+      <div class="f-body">
+        <div class="f-title">{{ r.title }}</div>
+        <div class="f-detail">{{ r.text }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid g2">
+
+  <!-- ===== recent threats ===== -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">🚨 Recent Threats</div>
+      <a href="{{ url_for('history_page') }}" class="btn btn-ghost btn-xs">View all</a>
+    </div>
+    {% if threats %}
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Module</th><th>Target</th><th>Risk</th><th>When</th></tr></thead>
+      <tbody>
+      {% for t in threats %}
+      <tr>
+        <td><b>{{ t.module|title }}</b></td>
+        <td class="t-mono trunc" style="max-width:230px" title="{{ t.target }}">{{ t.target[:60] }}</td>
+        <td>{{ badge(t.risk_score|band, t.risk_score ~ '/100') }}</td>
+        <td class="dim xs nowrap">{{ t.created_at[5:16] }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      {{ empty_state('✅','No threats detected','Nothing above medium risk has been found yet.') }}
+    {% endif %}
+  </div>
+
+  <!-- ===== module activity ===== -->
+  <div class="card">
+    <div class="card-head"><div class="card-title">📈 Module Activity</div></div>
+    {% if by_module %}
+      {% set maxn = by_module[0].n %}
+      {% for m in by_module %}
+      <div style="margin-bottom:11px">
+        <div class="flex-between xs" style="margin-bottom:3px">
+          <span><b>{{ m.module|replace('-',' ')|title }}</b></span>
+          <span class="mono dim">{{ m.n }} run{{ 's' if m.n != 1 }} · avg risk {{ m.avg_risk|round|int }}</span>
+        </div>
+        <div class="bar"><div class="bar-f {{ m.avg_risk|round|int|band }}"
+             data-w="{{ (m.n / maxn * 100)|round(1) }}" style="width:0"></div></div>
+      </div>
+      {% endfor %}
+    {% else %}
+      {{ empty_state('📈','No activity yet') }}
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid g2">
+
+  <!-- ===== cases ===== -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">📁 Recent Cases</div>
+      <a href="{{ url_for('cases_page') }}" class="btn btn-ghost btn-xs">Manage cases</a>
+    </div>
+    {% if recent_cases %}
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Case</th><th>Title</th><th>Status</th><th>Evidence</th></tr></thead>
+      <tbody>
+      {% for c in recent_cases %}
+      <tr>
+        <td class="t-mono nowrap"><a href="{{ url_for('case_detail', case_id=c.id) }}">{{ c.case_number }}</a></td>
+        <td class="trunc" style="max-width:200px">{{ c.title }}</td>
+        <td>{{ badge('low' if c.status=='closed' else 'medium' if c.status=='in_progress' else 'high', c.status|replace('_',' ')) }}</td>
+        <td class="mono">{{ c.evidence_count }} · {{ c.total_size }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      {{ empty_state('📁','No cases yet','Create your first investigation case.') }}
+      <a href="{{ url_for('cases_page') }}" class="btn btn-block mt">+ Create a case</a>
+    {% endif %}
+  </div>
+
+  <!-- ===== learning ===== -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">📚 Learning Progress</div>
+      <a href="{{ url_for('learn_page') }}" class="btn btn-ghost btn-xs">Learning Center</a>
+    </div>
+    <div class="flex" style="gap:22px;align-items:center">
+      {{ gauge(progress.overall_percent, 92) }}
+      <div style="flex:1;min-width:170px">
+        <div class="small mb"><b>{{ progress.labs_completed|length }}</b> / {{ progress.labs_total }} labs completed</div>
+        <div class="small mb"><b>{{ progress.quizzes|length }}</b> / {{ progress.quizzes_total }} quiz topics attempted</div>
+        <div class="small mb"><b>{{ progress.avg_score }}%</b> average quiz score</div>
+        {% if progress.badges %}
+        <div class="chips mt-s">
+          {% for b in progress.badges %}<span class="chip" title="{{ b.desc }}">{{ b.icon }} {{ b.name }}</span>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== quick actions ===== -->
+<div class="card">
+  <div class="card-head"><div class="card-title">⚡ Quick Actions</div></div>
+  <div class="grid g4">
+    {% for url, icon, title, sub in [
+        (url_for('phishing_page'),'🛡️','Check a link or message','Is this email/SMS/URL a scam?'),
+        (url_for('password_page'),'🔐','Test a password','Strength, entropy, crack time'),
+        (url_for('malware_page'),'🦠','Scan a file','Offline static malware analysis'),
+        (url_for('breach_page'),'💧','Check breach exposure','Is your email or password leaked?'),
+        (url_for('toolkit_page'),'🧰','Daily Toolkit','PII scan, EXIF, QR, scam check'),
+        (url_for('logs_page'),'📜','Analyse logs','Find intrusions in log files'),
+        (url_for('assistant_page'),'🤖','Ask the AI','Security questions answered'),
+        (url_for('cases_page'),'📁','Open a case','Start a forensic investigation'),
+        (url_for('learn_page'),'📚','Learn & practise','Quizzes, labs, phishing simulator') ] %}
+    <a href="{{ url }}" class="lab-card" style="text-decoration:none;color:inherit">
+      <div class="lab-i">{{ icon }}</div>
+      <div class="lab-t">{{ title }}</div>
+      <div class="lab-d">{{ sub }}</div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ===== recent activity ===== -->
+<div class="card">
+  <div class="card-head">
+    <div class="card-title">🕐 Recent Activity</div>
+    <a href="{{ url_for('history_page') }}" class="btn btn-ghost btn-xs">Full history</a>
+  </div>
+  {% if recent_scans %}
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>When</th><th>Module</th><th>Target</th><th>Verdict</th><th>Risk</th><th>AI</th><th></th></tr></thead>
+    <tbody>
+    {% for s in recent_scans %}
+    <tr>
+      <td class="dim xs nowrap">{{ s.created_at[5:16] }}</td>
+      <td><b>{{ s.module|replace('-',' ')|title }}</b></td>
+      <td class="t-mono trunc" style="max-width:250px" title="{{ s.target }}">{{ s.target[:70] }}</td>
+      <td class="small">{{ s.verdict }}</td>
+      <td>{{ badge(s.risk_score|band, s.risk_score|string) }}</td>
+      <td>{{ '🤖' if s.ai_used else '—' }}</td>
+      <td><a href="{{ url_for('history_detail', sid=s.id) }}" class="btn btn-ghost btn-xs">Details</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    {{ empty_state('🕐','No activity recorded yet','Your analyses will appear here.') }}
+  {% endif %}
+</div>
+
+<div class="alert alert-info">
+  <span>🔒</span>
+  <div><b>Privacy by design.</b> Every analysis on this platform runs entirely on your own machine.
+  No API keys, no cloud services, no telemetry. Files, passwords, messages and evidence never
+  leave this computer — the AI itself runs locally through Ollama.</div>
+</div>
+
+{% endblock %}

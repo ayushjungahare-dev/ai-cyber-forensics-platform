@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty_state with context %}
+{% block title %}Evidence #{{ e.id }} — {{ APP_NAME }}{% endblock %}
+{% block page_title %}🗂️ Evidence #{{ e.id }}: {{ e.name }}{% endblock %}
+{% block page_sub %}Case {{ e.case_number }} — {{ e.case_title }}{% endblock %}
+{% block topbar_extra %}
+<a href="{{ url_for('case_detail', case_id=e.case_id) }}" class="btn btn-ghost btn-sm">← Back to case</a>
+{% endblock %}
+
+{% block content %}
+
+{% if not e.verified %}
+<div class="alert alert-err"><span>🚨</span>
+  <div><b>Integrity failure recorded for this item.</b> Its current hash does not match the
+  acquisition baseline, or the file is missing from the vault. Review the custody log below and
+  document the discrepancy before relying on this evidence.</div></div>
+{% endif %}
+
+<div class="grid g2">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🔑 Evidence Identity</div>
+      {{ badge('low','intact') if e.verified else badge('critical','MISMATCH') }}</div>
+    <dl class="kv">
+      <dt>Evidence ID</dt><dd>#{{ e.id }}</dd>
+      <dt>Name</dt><dd>{{ e.name }}</dd>
+      <dt>Original filename</dt><dd>{{ e.original_filename }}</dd>
+      <dt>Type</dt><dd>{{ e.evidence_type }}</dd>
+      <dt>Size</dt><dd>{{ e.size_human }} ({{ e.size }} bytes)</dd>
+      <dt>Detected type</dt><dd>{{ e.meta_obj.true_type or 'unknown' }}</dd>
+      <dt>Source</dt><dd>{{ e.source or '—' }}</dd>
+      <dt>Collected by</dt><dd>{{ e.collected_by }}</dd>
+      <dt>Collected at</dt><dd>{{ e.collected_at }} UTC</dd>
+      <dt>Last verified</dt><dd>{{ e.last_verified_at or 'never' }}</dd>
+      <dt>On disk</dt><dd>{{ '✅ present' if e.exists_on_disk else '❌ MISSING' }}</dd>
+    </dl>
+    {% if e.description %}
+    <div class="mt"><label>Description</label><div class="small">{{ e.description }}</div></div>
+    {% endif %}
+    {% if e.tag_list %}
+    <div class="chips mt">{% for t in e.tag_list %}<span class="chip on">{{ t }}</span>{% endfor %}</div>
+    {% endif %}
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔐 Cryptographic Hashes</div></div>
+      <div class="alert alert-info"><span>ℹ️</span>
+        <div>These were computed at the moment of acquisition. They are the baseline that proves
+        the evidence has not been altered.</div></div>
+      <dl class="kv">
+        <dt>MD5</dt><dd>{{ e.md5 }}</dd>
+        <dt>SHA-1</dt><dd>{{ e.sha1 }}</dd>
+        <dt>SHA-256</dt><dd>{{ e.sha256 }}</dd>
+      </dl>
+      <div class="btn-group mt">
+        <button class="btn btn-sm" onclick="verifyNow()">🔒 Verify Integrity Now</button>
+        <button class="btn btn-ghost btn-sm" data-copy="{{ e.sha256 }}">📋 Copy SHA-256</button>
+        <a href="{{ url_for('evidence_download', eid=e.id) }}" class="btn btn-ghost btn-sm">⬇️ Download original</a>
+      </div>
+      <div id="verifyOut" class="mt"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔬 Quick Analysis</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="harvest()">🎯 Extract IOCs from this file</button>
+      <div class="dim xs mt-s">Scans the artefact for URLs, IPs, emails, wallets and hashes, and
+      registers everything found as case IOCs. Best for text, logs and email files.</div>
+      <div id="harvestOut" class="mt"></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🔗 Chain of Custody for This Item</div>
+    <span class="dim xs">{{ e.custody|length }} event(s)</span></div>
+  {% if e.custody %}
+  <div class="tline">
+    {% for c in e.custody %}
+    <div class="tl-item {{ 'critical' if c.integrity != 'intact' else 'info' }}">
+      <div class="tl-t">{{ c.ts }} UTC · {{ c.actor }} · {{ badge('info', c.action) }}
+        {{ badge('low','intact') if c.integrity=='intact' else badge('critical', c.integrity) }}</div>
+      <div class="tl-e">{{ c.notes }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}{{ empty_state('🔗','No custody events') }}{% endif %}
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <div class="card-head"><div class="card-title">✏️ Edit Metadata</div></div>
+    <form method="post" action="{{ url_for('evidence_update', eid=e.id) }}">
+      <div class="field"><label>Name</label><input type="text" name="name" value="{{ e.name }}"></div>
+      <div class="row">
+        <div class="field"><label>Type</label>
+          <select name="evidence_type">
+            {% for t in evidence_types %}<option value="{{ t }}" {{ 'selected' if e.evidence_type==t }}>{{ t|title }}</option>{% endfor %}
+          </select></div>
+        <div class="field"><label>Tags</label><input type="text" name="tags" value="{{ e.tags or '' }}"></div>
+      </div>
+      <div class="field"><label>Source</label><input type="text" name="source" value="{{ e.source or '' }}"></div>
+      <div class="field"><label>Description</label>
+        <textarea name="description" rows="3">{{ e.description or '' }}</textarea></div>
+      <button type="submit" class="btn">Save (logged to custody)</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">🗑️ Remove Evidence</div></div>
+    <div class="alert alert-warn"><span>⚠️</span>
+      <div>Deleting evidence permanently destroys the stored file. The deletion itself is recorded
+      on the case timeline, but the artefact cannot be recovered.</div></div>
+    <form method="post" action="{{ url_for('evidence_delete', eid=e.id) }}"
+          onsubmit="return confirm('Permanently delete this evidence file?')">
+      <div class="field"><label>Reason for removal (recorded)</label>
+        <input type="text" name="reason" placeholder="e.g. duplicate item, uploaded in error"></div>
+      <button type="submit" class="btn btn-danger btn-sm">Delete Evidence</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function verifyNow(){
+  const out = document.getElementById('verifyOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Re-hashing…</div></div>';
+  const r = await postJSON('{{ url_for("evidence_verify", eid=e.id) }}', {});
+  out.innerHTML = '<div class="alert ' + (r.ok ? 'alert-ok' : 'alert-err') + '"><span>' +
+    (r.ok ? '✅' : '🚨') + '</span><div><b>' + (r.ok ? 'Integrity verified' : 'INTEGRITY FAILURE') +
+    '</b><br>' + r.message + '</div></div>';
+  if (!r.ok) setTimeout(() => location.reload(), 2500);
+}
+async function harvest(){
+  const out = document.getElementById('harvestOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Scanning for indicators…</div></div>';
+  const r = await postJSON('{{ url_for("evidence_harvest", eid=e.id) }}', {});
+  if (r.error) { out.innerHTML = '<div class="alert alert-err"><span>⚠️</span><div>' + r.error + '</div></div>'; return; }
+  let html = '<div class="alert alert-ok"><span>🎯</span><div><b>' + r.registered +
+    ' indicator(s) registered to the case.</b></div></div>';
+  const i = r.iocs || {};
+  ['urls','domains','ips','emails','bitcoin','upi_ids'].forEach(k => {
+    if (i[k] && i[k].length) html += '<div class="small mt-s"><b>' + k + ':</b> <span class="mono xs">' +
+      i[k].slice(0,10).join(', ') + '</span></div>';
+  });
+  out.innerHTML = html;
+}
+</script>
+{% endblock %}

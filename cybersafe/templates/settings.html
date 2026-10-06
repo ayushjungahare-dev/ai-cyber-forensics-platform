@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge with context %}
+{% block title %}Settings — {{ APP_NAME }}{% endblock %}
+{% block page_title %}⚙️ Settings{% endblock %}
+{% block page_sub %}Ollama connection, investigator identity and system status{% endblock %}
+
+{% block content %}
+
+{% if msg %}<div class="alert alert-ok"><span>✅</span><div>{{ msg }}</div></div>{% endif %}
+
+<div class="grid g2">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🤖 Local AI (Ollama)</div>
+      <span class="ai-pill {{ 'ai-on' if status.online else 'ai-off' }}">
+        <span class="dot"></span>{{ 'Online' if status.online else 'Offline' }}</span></div>
+
+    {% if status.online %}
+    <div class="alert alert-ok"><span>✅</span>
+      <div><b>Connected.</b> Active model: <code>{{ status.model }}</code><br>
+      Installed models: {{ status.models|join(', ') or '(none)' }}</div></div>
+    {% else %}
+    <div class="alert alert-err"><span>❌</span>
+      <div><b>Cannot reach Ollama at {{ config.OLLAMA_HOST }}.</b><br>
+      Every rule engine in this platform still works — only AI commentary is disabled.</div></div>
+    <div class="card-title mt" style="font-size:13px">Setup in 3 steps</div>
+    <ol style="margin:8px 0 0 20px;line-height:2">
+      <li>Download and install Ollama from <a href="https://ollama.com" target="_blank">ollama.com</a> (free, open source)</li>
+      <li>Start the server: <code>ollama serve</code></li>
+      <li>Pull a model: <code>ollama pull llama3.2</code></li>
+    </ol>
+    <div class="dim xs mt-s">llama3.2 (3B) runs comfortably on most laptops with 8 GB of RAM.
+    For better reasoning try <code>llama3.1:8b</code> or <code>qwen2.5:7b</code>.</div>
+    {% endif %}
+
+    <form method="post" class="mt">
+      <div class="field"><label>Ollama host URL</label>
+        <input type="text" name="ollama_host" value="{{ config.OLLAMA_HOST }}" class="mono"></div>
+      <div class="field"><label>Model name</label>
+        {% if status.models %}
+        <select name="ollama_model">
+          {% for m in status.models %}<option value="{{ m }}" {{ 'selected' if m == status.model }}>{{ m }}</option>{% endfor %}
+        </select>
+        {% else %}
+        <input type="text" name="ollama_model" value="{{ config.OLLAMA_MODEL }}" class="mono">
+        {% endif %}
+      </div>
+      <div class="field"><label>Default investigator name</label>
+        <input type="text" name="investigator" value="{{ config.DEFAULT_INVESTIGATOR }}"
+               placeholder="Recorded in the chain of custody"></div>
+      <div class="btn-group">
+        <button type="submit" class="btn">Save Settings</button>
+        <button type="button" class="btn btn-ghost" onclick="testAI()">🧪 Test AI Connection</button>
+      </div>
+    </form>
+    <div id="testOut" class="mt"></div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">📊 System Status</div></div>
+      <dl class="kv">
+        <dt>Platform version</dt><dd>{{ APP_VERSION }}</dd>
+        <dt>Database</dt><dd>{{ db_size }}</dd>
+        <dt>Cases</dt><dd>{{ stats.cases_total }} ({{ stats.cases_open }} open)</dd>
+        <dt>Evidence items</dt><dd>{{ stats.evidence_total }}</dd>
+        <dt>Evidence volume</dt><dd>{{ stats.evidence_bytes|hsize }}</dd>
+        <dt>Custody events</dt><dd>{{ stats.custody_events }}</dd>
+        <dt>Integrity failures</dt><dd>{{ stats.integrity_failures }}</dd>
+        <dt>IOCs registered</dt><dd>{{ stats.iocs }}</dd>
+        <dt>Max upload size</dt><dd>{{ (config.MAX_CONTENT_LENGTH / 1048576)|int }} MB</dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">📂 Data Locations</div></div>
+      <dl class="kv">
+        <dt>Database</dt><dd class="xs">{{ config.DB_PATH }}</dd>
+        <dt>Evidence vault</dt><dd class="xs">{{ config.EVIDENCE_DIR }}</dd>
+        <dt>Reports</dt><dd class="xs">{{ config.REPORT_DIR }}</dd>
+        <dt>Uploads</dt><dd class="xs">{{ config.UPLOAD_DIR }}</dd>
+      </dl>
+      <div class="alert alert-info mt"><span>💾</span>
+        <div>To back up everything, copy the entire <code>data/</code> folder. To reset the
+        platform completely, delete <code>data/cybersafe.db</code> and restart.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔧 Environment Variables</div></div>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Variable</th><th>Purpose</th><th>Default</th></tr></thead>
+        <tbody>
+          <tr><td class="mono xs">OLLAMA_HOST</td><td class="small">Ollama server URL</td><td class="mono xs">http://localhost:11434</td></tr>
+          <tr><td class="mono xs">OLLAMA_MODEL</td><td class="small">Model to use</td><td class="mono xs">llama3.2</td></tr>
+          <tr><td class="mono xs">MAX_UPLOAD_MB</td><td class="small">Upload limit</td><td class="mono xs">512</td></tr>
+          <tr><td class="mono xs">INVESTIGATOR</td><td class="small">Default custody actor</td><td class="mono xs">analyst</td></tr>
+          <tr><td class="mono xs">PORT</td><td class="small">Web server port</td><td class="mono xs">5000</td></tr>
+          <tr><td class="mono xs">HOST</td><td class="small">Bind address</td><td class="mono xs">127.0.0.1</td></tr>
+          <tr><td class="mono xs">DEBUG</td><td class="small">Flask debug mode</td><td class="mono xs">0</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🔒 Privacy Guarantee</div></div>
+  <div class="grid g3">
+    {% for icon, t, d in [
+      ('🚫','No API keys','This project contains zero third-party API keys. Search the source — there are none to configure.'),
+      ('🏠','Fully local','The AI runs on your machine via Ollama. Files, passwords and messages never leave this computer.'),
+      ('📡','No telemetry','Nothing is phoned home. The only network traffic is between this app and your local Ollama instance.'),
+      ('💰','Free forever','No subscriptions, no rate limits, no trial periods. Everything used here is free and open source.'),
+      ('🔓','Your data, your disk','SQLite database and evidence vault live in the data/ folder. Copy it, move it, delete it.'),
+      ('🧾','Auditable','Every analysis is logged locally so you can reproduce and defend your findings.') ] %}
+    <div class="finding low"><span class="f-icon">{{ icon }}</span>
+      <div class="f-body"><div class="f-title">{{ t }}</div><div class="f-detail">{{ d }}</div></div></div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function testAI(){
+  const out = document.getElementById('testOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Sending a test prompt to the local model…</div></div>';
+  const r = await postJSON('/api/ollama/test', {});
+  out.innerHTML = r.ok
+    ? '<div class="alert alert-ok"><span>✅</span><div><b>AI is working.</b><br>Model <code>' +
+      (r.model||'') + '</code> replied in ' + r.elapsed_ms + ' ms:<br><i>"' + r.text + '"</i></div></div>'
+    : '<div class="alert alert-err"><span>❌</span><div><b>Test failed:</b> ' + (r.error||'unknown') +
+      '<br>Make sure <code>ollama serve</code> is running and a model is pulled.</div></div>';
+}
+</script>
+{% endblock %}

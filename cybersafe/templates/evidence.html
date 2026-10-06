@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty_state with context %}
+{% block title %}Evidence Vault — {{ APP_NAME }}{% endblock %}
+{% block page_title %}🗂️ Evidence Vault{% endblock %}
+{% block page_sub %}All digital evidence across every case, with integrity status{% endblock %}
+
+{% block content %}
+
+<div class="grid g4 mb">
+  <div class="stat"><div class="stat-i">🗂️</div><div class="stat-v">{{ stats.evidence_total }}</div><div class="stat-l">Total Items</div></div>
+  <div class="stat"><div class="stat-i">💾</div><div class="stat-v" style="font-size:20px">{{ stats.evidence_bytes|hsize }}</div><div class="stat-l">Data Stored</div></div>
+  <div class="stat"><div class="stat-i">🔗</div><div class="stat-v">{{ stats.custody_events }}</div><div class="stat-l">Custody Events</div></div>
+  <div class="stat {{ 'crit' if stats.integrity_failures else 'good' }}"><div class="stat-i">🔒</div>
+    <div class="stat-v">{{ stats.integrity_failures }}</div><div class="stat-l">Integrity Failures</div></div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <div class="card-title">🔍 Search Evidence</div>
+    <form method="get" class="flex">
+      <input type="search" name="q" value="{{ q }}" placeholder="Name, description, or hash…" style="width:240px">
+      <select name="type" onchange="this.form.submit()" style="width:auto">
+        <option value="all" {{ 'selected' if etype=='all' }}>All types</option>
+        {% for t in evidence_types %}<option value="{{ t }}" {{ 'selected' if etype==t }}>{{ t|title }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-ghost btn-sm">Search</button>
+    </form>
+  </div>
+
+  {% if evidence %}
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>#</th><th>Name</th><th>Case</th><th>Type</th><th>Size</th>
+      <th>Collected</th><th>Integrity</th><th>SHA-256</th><th></th></tr></thead>
+    <tbody>
+    {% for e in evidence %}
+    <tr>
+      <td class="mono">{{ e.id }}</td>
+      <td><a href="{{ url_for('evidence_detail', eid=e.id) }}"><b>{{ e.name }}</b></a>
+        {% if e.tag_list %}<div class="chips mt-s">{% for t in e.tag_list %}<span class="chip">{{ t }}</span>{% endfor %}</div>{% endif %}
+      </td>
+      <td class="t-mono xs">{{ e.case_number or '—' }}</td>
+      <td class="small">{{ e.evidence_type }}</td>
+      <td class="mono nowrap">{{ e.size_human }}</td>
+      <td class="dim xs nowrap">{{ e.collected_at[:16] }}</td>
+      <td>{{ badge('low','intact') if e.verified else badge('critical','MISMATCH') }}</td>
+      <td class="t-mono xs" style="max-width:170px">{{ e.sha256[:20] }}…</td>
+      <td><a href="{{ url_for('evidence_detail', eid=e.id) }}" class="btn btn-ghost btn-xs">Open</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    {{ empty_state('🗂️','No evidence stored','Open a case and upload artefacts to begin building your evidence vault.') }}
+    <a href="{{ url_for('cases_page') }}" class="btn mt">Go to Cases</a>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">⚖️ Evidence Handling Principles</div></div>
+  <div class="grid g2">
+    {% for icon, t, d in [
+      ('1️⃣','Preserve the original','Evidence is copied into a managed vault. The original source is never modified by this tool.'),
+      ('2️⃣','Hash at acquisition','MD5, SHA-1 and SHA-256 are computed the moment the artefact is stored. That is the baseline.'),
+      ('3️⃣','Document everything','Every access, verification, edit and export is written to an immutable custody log.'),
+      ('4️⃣','Verify before relying','Re-hash at any time. A mismatch means the file changed and must be explained.'),
+      ('5️⃣','Order of volatility','Capture RAM and live network state before disk; capture disk before archives.'),
+      ('6️⃣','Work on copies only','All analysis happens on the vault copy, never the source media.') ] %}
+    <div class="finding info">
+      <span class="f-icon">{{ icon }}</span>
+      <div class="f-body"><div class="f-title">{{ t }}</div><div class="f-detail">{{ d }}</div></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}

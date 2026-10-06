@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, risk_panel, findings_list, ai_block, ioc_table, case_selector, ai_toggle, empty_state with context %}
+{% block title %}Phishing Detector — {{ APP_NAME }}{% endblock %}
+{% block page_title %}🛡️ AI Phishing Detector{% endblock %}
+{% block page_sub %}Analyse URLs, emails and SMS for phishing, scams and social engineering{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <form method="post" data-loading>
+    <div class="tabs" data-tabs data-scope="#kindPanes">
+      <button type="button" class="tab active" data-tab="url">🔗 URL / Website</button>
+      <button type="button" class="tab" data-tab="email">📧 Email</button>
+      <button type="button" class="tab" data-tab="sms">💬 SMS / WhatsApp</button>
+    </div>
+    <input type="hidden" name="kind" id="kindInput" value="url">
+
+    <div id="kindPanes">
+      {# Each tab has its OWN field name. Hidden panes are still submitted by the
+         browser, so sharing one name made the empty URL box overwrite the real input. #}
+      <div class="tabpane active" data-pane="url">
+        <div class="field">
+          <label>Suspicious URL</label>
+          <input type="text" name="content_url" id="c_url" placeholder="https://example-login-verify.xyz/account"
+                 value="{{ result.input if result and result.kind=='url' else '' }}">
+        </div>
+        <div class="chips mb">
+          <span class="dim xs" style="align-self:center">Try:</span>
+          <button type="button" class="chip" data-fill="{{ samples.url }}" data-fill-target="#c_url">Phishing sample</button>
+          <button type="button" class="chip" data-fill="https://www.google.com/search?q=cyber+safety" data-fill-target="#c_url">Safe sample</button>
+        </div>
+      </div>
+
+      <div class="tabpane" data-pane="email">
+        <div class="field">
+          <label>Paste the full email (include headers if you have them — From, Reply-To, Authentication-Results)</label>
+          <textarea name="content_email" id="c_email" rows="11" placeholder="From: ...&#10;Subject: ...&#10;&#10;Message body...">{{ result.input if result and result.kind=='email' else '' }}</textarea>
+        </div>
+        <div class="chips mb">
+          <span class="dim xs" style="align-self:center">Try:</span>
+          <button type="button" class="chip" id="fillEmail">Phishing email sample</button>
+        </div>
+      </div>
+
+      <div class="tabpane" data-pane="sms">
+        <div class="field">
+          <label>Paste the SMS or WhatsApp message</label>
+          <textarea name="content_sms" id="c_sms" rows="5" placeholder="URGENT: Your account is blocked...">{{ result.input if result and result.kind=='sms' else '' }}</textarea>
+        </div>
+        <div class="chips mb">
+          <span class="dim xs" style="align-self:center">Try:</span>
+          <button type="button" class="chip" id="fillSms">Smishing sample</button>
+        </div>
+      </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-warn" id="formError"><span>⚠️</span><div>{{ error }}</div></div>
+    {% endif %}
+
+    {{ case_selector(open_cases) }}
+    {{ ai_toggle() }}
+    <div class="mt">
+      <button type="submit" class="btn" data-loading="Analyzing…">🔍 Analyse for Phishing</button>
+      <span class="dim small hidden" data-loading-note>AI analysis can take 10–40 seconds on a local model.</span>
+    </div>
+  </form>
+</div>
+
+{% if result %}
+{% if result.error %}
+  <div class="alert alert-err"><span>⚠️</span><div>{{ result.error }}</div></div>
+{% else %}
+
+{{ risk_panel(result.risk_score, result.verdict, result.explanation) }}
+
+<div class="flex mb">
+  <span class="badge b-info">Rule engine: {{ result.rule_score }}/100</span>
+  {% if result.ai.available %}<span class="badge b-info">AI: {{ result.ai.ai_risk_score }}/100 ({{ result.ai.verdict }})</span>{% endif %}
+  <span class="badge b-info">{{ result.findings|length }} indicators</span>
+  <a class="btn btn-ghost btn-xs" href="{{ url_for('report_scan', scan_id=result.scan_id) }}" target="_blank">📄 Export report</a>
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🔎 Indicators of Compromise</div></div>
+    {{ findings_list(result.findings, 40, 'No phishing indicators were found. This looks clean — but stay alert.') }}
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">✅ Recommended Actions</div></div>
+      <ol style="margin-left:19px">
+        {% for a in result.recommended_action %}<li style="margin-bottom:7px;font-size:13.4px">{{ a }}</li>{% endfor %}
+      </ol>
+    </div>
+
+    {% if result.parsed %}
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔬 URL Breakdown</div></div>
+      <dl class="kv">
+        {% for k, v in result.parsed.items() %}
+          {% if v not in (None, '', 0) or k == 'port' %}
+          <dt>{{ k|replace('_',' ')|title }}</dt><dd>{{ v }}</dd>
+          {% endif %}
+        {% endfor %}
+      </dl>
+      <div class="alert alert-info mt">
+        <span>💡</span>
+        <div>Read a domain <b>right to left</b>. The <b>registered domain</b> is the real owner —
+        everything to its left is a subdomain the attacker fully controls.</div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if result.stats %}
+    <div class="card">
+      <div class="card-head"><div class="card-title">📊 Message Statistics</div></div>
+      <dl class="kv">
+        {% for k, v in result.stats.items() %}<dt>{{ k|replace('_',' ')|title }}</dt><dd>{{ v }}</dd>{% endfor %}
+      </dl>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{{ ai_block(result.ai, 'AI Phishing Assessment') }}
+
+{% if result.urls %}
+<div class="card">
+  <div class="card-head"><div class="card-title">🔗 Links Found in the Message</div></div>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>URL</th><th>Risk</th><th>Top reasons</th></tr></thead>
+    <tbody>
+    {% for u in result.urls %}
+    <tr>
+      <td class="t-mono" style="max-width:340px;word-break:break-all">{{ u.url }}</td>
+      <td>{{ badge(u.score|band, u.score|string ~ '/100') }}</td>
+      <td class="small">{{ u.top|join(' · ') or '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
+{% if result.iocs and result.iocs.total %}
+<div class="card">
+  <div class="card-head"><div class="card-title">🎯 Extracted Indicators</div>
+    <span class="dim xs">Register these to a case to track them</span></div>
+  {{ ioc_table(result.iocs) }}
+</div>
+{% endif %}
+
+{% endif %}
+{% else %}
+
+<div class="grid g2">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🎣 How Phishing Works</div></div>
+    <ol style="margin-left:19px;font-size:13.4px;line-height:1.9">
+      <li><b>The lure</b> — an urgent email, SMS or call impersonating a brand you trust.</li>
+      <li><b>The pressure</b> — a deadline, a threat, or a prize to stop you thinking.</li>
+      <li><b>The trap</b> — a link to a pixel-perfect fake login page.</li>
+      <li><b>The harvest</b> — you type your credentials or OTP straight to the attacker.</li>
+      <li><b>The replay</b> — they log into the real site as you, within seconds.</li>
+    </ol>
+    <div class="alert alert-warn mt">
+      <span>🔑</span>
+      <div><b>The one rule that stops most phishing:</b> never enter credentials on a page you
+      reached by clicking a link. Type the address yourself, or use your bookmark.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">🚩 Universal Red Flags</div></div>
+    {% for icon, t, d in [
+      ('⏰','Urgency and deadlines','"Within 24 hours", "immediately", "final notice" — engineered panic.'),
+      ('👤','Generic greeting','"Dear Customer" instead of your actual name.'),
+      ('🔗','Mismatched links','Displayed text says one domain, the real href goes elsewhere.'),
+      ('🔢','Requests for secrets','OTP, CVV, PIN, password, seed phrase — never legitimate.'),
+      ('📎','Unexpected attachments','.exe, .zip, .docm, .lnk, .apk from someone you did not ask.'),
+      ('✉️','Wrong sender domain','A bank writing from gmail.com, or "@paypa1.com".'),
+      ('✍️','Language errors','Odd grammar, wrong branding, inconsistent formatting.'),
+      ('💰','Money redirection','A new UPI ID, crypto wallet, or changed bank details.') ] %}
+    <div class="finding medium">
+      <span class="f-icon">{{ icon }}</span>
+      <div class="f-body"><div class="f-title">{{ t }}</div><div class="f-detail">{{ d }}</div></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🇮🇳 If You Have Already Been Scammed (India)</div></div>
+  <div class="grid g3">
+    <div class="finding critical">
+      <span class="f-icon">📞</span>
+      <div class="f-body"><div class="f-title">Call 1930 immediately</div>
+      <div class="f-detail">The national cyber financial fraud helpline. Within the "golden hour"
+      the transfer can often be frozen before withdrawal.</div></div>
+    </div>
+    <div class="finding high">
+      <span class="f-icon">🌐</span>
+      <div class="f-body"><div class="f-title">File at cybercrime.gov.in</div>
+      <div class="f-detail">The official National Cyber Crime Reporting Portal. Keep the
+      acknowledgement number safe.</div></div>
+    </div>
+    <div class="finding high">
+      <span class="f-icon">🏦</span>
+      <div class="f-body"><div class="f-title">Tell your bank now</div>
+      <div class="f-detail">Block the card/account and raise a dispute. Also report the spam SMS
+      to 1909.</div></div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const KIND_INPUT = document.getElementById('kindInput');
+
+function selectKind(k){
+  document.querySelectorAll('[data-tabs] .tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === k));
+  document.querySelectorAll('#kindPanes .tabpane').forEach(p =>
+    p.classList.toggle('active', p.dataset.pane === k));
+  KIND_INPUT.value = k;
+  // Focus the box so it is obvious where to type.
+  const box = document.querySelector('#kindPanes .tabpane.active input, #kindPanes .tabpane.active textarea');
+  if (box) box.focus();
+}
+
+document.querySelectorAll('[data-tabs] .tab').forEach(t => {
+  t.addEventListener('click', () => selectKind(t.dataset.tab));
+});
+
+const SAMPLE_EMAIL = {{ samples.email|tojson }};
+const SAMPLE_SMS   = {{ samples.sms|tojson }};
+document.getElementById('fillEmail').onclick = () => {
+  document.getElementById('c_email').value = SAMPLE_EMAIL;
+};
+document.getElementById('fillSms').onclick = () => {
+  document.getElementById('c_sms').value = SAMPLE_SMS;
+};
+
+// Restore whichever tab the server last worked with — after a result AND after
+// an empty submission, so the page never silently snaps back to URL.
+selectKind({{ (result.kind if result else kind)|tojson }});
+
+// Guard: don't submit an empty box. Show the message inline instead of
+// round-tripping to a blank page.
+document.querySelector('form[data-loading]').addEventListener('submit', function(e){
+  const box = document.querySelector('#kindPanes .tabpane.active input, #kindPanes .tabpane.active textarea');
+  if (box && !box.value.trim()) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    let err = document.getElementById('formError');
+    if (!err) {
+      err = document.createElement('div');
+      err.id = 'formError';
+      err.className = 'alert alert-warn';
+      document.getElementById('kindPanes').insertAdjacentElement('afterend', err);
+    }
+    err.innerHTML = '<span>⚠️</span><div>Please paste a ' +
+      ({url:'URL', email:'email', sms:'SMS or WhatsApp message'}[KIND_INPUT.value] || 'value') +
+      ' before pressing Analyse.</div>';
+    box.focus();
+  }
+}, true);
+</script>
+{% endblock %}

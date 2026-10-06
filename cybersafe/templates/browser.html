@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, risk_panel, findings_list, ai_block, case_selector, ai_toggle, empty_state with context %}
+{% block title %}Browser Forensics — {{ APP_NAME }}{% endblock %}
+{% block page_title %}🌐 Browser Forensics{% endblock %}
+{% block page_sub %}Analyse history, downloads, cookies and saved-login metadata{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="card-head"><div class="card-title">📤 Load a Browser Artefact</div></div>
+  <form method="post" enctype="multipart/form-data" data-loading>
+    <div class="field">
+      <label>Browser artefact file</label>
+      <input type="file" name="file" required>
+    </div>
+    <div class="alert alert-info">
+      <span>📂</span>
+      <div><b>Supported artefacts:</b> Chrome/Edge/Brave <code>History</code>, <code>Cookies</code>,
+      <code>Login Data</code> (metadata only) · Firefox <code>places.sqlite</code>,
+      <code>cookies.sqlite</code> · CSV or JSON history exports (including Google Takeout).<br>
+      <b>Where to find them:</b><br>
+      Chrome (Windows): <code>%LOCALAPPDATA%\Google\Chrome\User Data\Default\History</code><br>
+      Chrome (Linux): <code>~/.config/google-chrome/Default/History</code><br>
+      Chrome (macOS): <code>~/Library/Application Support/Google/Chrome/Default/History</code><br>
+      Firefox: <code>~/.mozilla/firefox/&lt;profile&gt;/places.sqlite</code><br>
+      <b>Close the browser first</b> — it locks these files. Always copy, never open the original.</div>
+    </div>
+    {{ case_selector(open_cases) }}
+    {{ ai_toggle() }}
+    <button type="submit" class="btn mt" data-loading="Parsing…">🔍 Analyse Artefact</button>
+  </form>
+</div>
+
+{% if result %}
+{% if result.error %}
+  <div class="alert alert-err"><span>⚠️</span><div><b>{{ result.error }}</b><br>{{ result.hint or '' }}</div></div>
+{% else %}
+
+{{ risk_panel(result.risk_score, 'Browser Risk: ' ~ result.band|title,
+   result.browser ~ ' — ' ~ result.counts.history ~ ' history entries, ' ~
+   result.counts.downloads ~ ' downloads, ' ~ result.counts.cookies ~ ' cookies, ' ~
+   result.flagged_urls|length ~ ' flagged URLs, ' ~ result.phishing_urls|length ~
+   ' phishing-pattern URLs.') }}
+
+<div class="alert alert-ok"><span>🔒</span><div>{{ result.privacy_note }}</div></div>
+
+<div class="grid g5 mb">
+  {% for k, label, icon in [('history','History','🕐'),('downloads','Downloads','⬇️'),
+                            ('cookies','Cookies','🍪'),('searches','Searches','🔍'),
+                            ('logins','Saved Logins','🔑')] %}
+  <div class="stat"><div class="stat-i">{{ icon }}</div>
+    <div class="stat-v">{{ result.counts[k] }}</div><div class="stat-l">{{ label }}</div></div>
+  {% endfor %}
+</div>
+
+<div class="tabs" data-tabs data-scope="#brPanes">
+  <button class="tab active" data-tab="find">Findings ({{ result.findings|length }})</button>
+  <button class="tab" data-tab="flag">Flagged URLs ({{ result.flagged_urls|length }})</button>
+  <button class="tab" data-tab="dl">Downloads ({{ result.risky_downloads|length }})</button>
+  <button class="tab" data-tab="dom">Top Domains</button>
+  <button class="tab" data-tab="act">Activity Pattern</button>
+  <button class="tab" data-tab="hist">Recent History</button>
+  {% if result.logins_metadata %}<button class="tab" data-tab="log">Saved Logins</button>{% endif %}
+</div>
+
+<div id="brPanes">
+  <div class="tabpane active" data-pane="find">
+    <div class="card">{{ findings_list(result.findings, 40, 'No risky browsing behaviour detected.') }}</div>
+    {{ ai_block(result.ai, 'AI Forensic Summary') }}
+  </div>
+
+  <div class="tabpane" data-pane="flag">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🚩 Flagged URLs by Category</div></div>
+      {% if result.flagged_urls %}
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>URL</th><th>Title</th><th>Categories</th><th>Severity</th><th>Visits</th><th>Last visit</th></tr></thead>
+        <tbody>
+        {% for u in result.flagged_urls %}
+        <tr>
+          <td class="t-mono xs" style="max-width:280px;word-break:break-all">{{ u.url }}</td>
+          <td class="small trunc" style="max-width:150px">{{ u.title }}</td>
+          <td class="xs">{{ u.categories|join(', ')|replace('_',' ') }}</td>
+          <td>{{ badge(u.severity) }}</td>
+          <td class="mono">{{ u.visits }}</td>
+          <td class="dim xs nowrap">{{ u.when[:16] }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}{{ empty_state('✅','No flagged URLs') }}{% endif %}
+
+      {% if result.phishing_urls %}
+      <div class="card-title mt" style="font-size:13px">🎣 Phishing-Pattern URLs Visited</div>
+      <div class="tbl-wrap mt-s">
+      <table>
+        <thead><tr><th>URL</th><th>Phishing score</th><th>Reasons</th><th>When</th></tr></thead>
+        <tbody>
+        {% for p in result.phishing_urls %}
+        <tr><td class="t-mono xs" style="max-width:300px;word-break:break-all">{{ p.url }}</td>
+            <td>{{ badge(p.score|band, p.score|string ~ '/100') }}</td>
+            <td class="xs">{{ p.reasons|join(' · ') }}</td>
+            <td class="dim xs">{{ p.when[:16] }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% endif %}
+
+      {% if result.category_breakdown %}
+      <div class="card-title mt" style="font-size:13px">Category Breakdown</div>
+      <div class="chips mt-s">
+        {% for c in result.category_breakdown %}<span class="chip on">{{ c.category }}: {{ c.count }}</span>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="dl">
+    <div class="card">
+      <div class="card-head"><div class="card-title">⬇️ Risky Downloads</div></div>
+      {% if result.risky_downloads %}
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>File</th><th>Source</th><th>When</th><th>Why flagged</th></tr></thead>
+        <tbody>
+        {% for d in result.risky_downloads %}
+        <tr><td class="mono small">{{ d.target }}</td>
+            <td class="t-mono xs" style="max-width:230px;word-break:break-all">{{ d.source }}</td>
+            <td class="dim xs nowrap">{{ d.when[:16] }}</td>
+            <td class="small">{{ d.reasons|join('; ') }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="alert alert-warn mt"><span>💡</span>
+        <div>The download that immediately follows a visit to a crack/keygen/fake-installer site is
+        usually the moment of infection. Cross-reference the timestamps with the history tab.</div></div>
+      {% else %}{{ empty_state('✅','No risky downloads found') }}{% endif %}
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="dom">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🌐 Most Visited Domains</div></div>
+      {% if result.top_domains %}
+        {% set maxv = result.top_domains[0].visits %}
+        {% for d in result.top_domains %}
+        <div style="margin-bottom:9px">
+          <div class="flex-between xs" style="margin-bottom:3px">
+            <span class="mono">{{ d.domain }}</span><span class="dim mono">{{ d.visits }} visits</span>
+          </div>
+          <div class="bar"><div class="bar-f low" data-w="{{ (d.visits/maxv*100)|round(1) }}" style="width:0"></div></div>
+        </div>
+        {% endfor %}
+      {% else %}{{ empty_state('🌐','No domain data') }}{% endif %}
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="act">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🕐 Activity by Hour of Day</div></div>
+      {% set maxh = result.hourly_activity|map(attribute='count')|max %}
+      {% if maxh %}
+      <div style="display:flex;gap:3px;align-items:flex-end;height:150px;padding:10px 0">
+        {% for h in result.hourly_activity %}
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%">
+          <div style="flex:1;display:flex;align-items:flex-end;width:100%">
+            <div style="width:100%;background:{{ 'var(--high)' if h.hour < 5 else 'var(--primary)' }};
+              height:{{ (h.count/maxh*100)|round(1) }}%;border-radius:3px 3px 0 0;min-height:2px"
+              title="{{ h.hour }}:00 — {{ h.count }} visits"></div>
+          </div>
+          <div class="dim" style="font-size:9px">{{ h.hour }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="dim xs">Orange bars are 00:00–04:00. Heavy late-night activity can indicate
+      unauthorised use, automation, or a compromised account.</div>
+      {% else %}{{ empty_state('🕐','No timestamp data available in this artefact') }}{% endif %}
+
+      {% if result.searches %}
+      <div class="card-title mt" style="font-size:13px">🔍 Search Terms</div>
+      <div class="chips mt-s">
+        {% for s in result.searches[:40] %}<span class="chip">{{ s.term }}</span>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tabpane" data-pane="hist">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🕐 Recent History</div></div>
+      {% if result.recent_history %}
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Last visit</th><th>Title</th><th>URL</th><th>Visits</th><th>Typed</th></tr></thead>
+        <tbody>
+        {% for h in result.recent_history %}
+        <tr><td class="dim xs nowrap">{{ h.last_visit[:19] }}</td>
+            <td class="small trunc" style="max-width:190px">{{ h.title }}</td>
+            <td class="t-mono xs" style="max-width:330px;word-break:break-all">{{ h.url[:150] }}</td>
+            <td class="mono">{{ h.visit_count }}</td>
+            <td class="mono">{{ h.typed_count }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="dim xs mt-s">A high "typed" count means the user deliberately typed the address
+      rather than following a link — useful for showing intent.</div>
+      {% else %}{{ empty_state('🕐','No history entries') }}{% endif %}
+    </div>
+  </div>
+
+  {% if result.logins_metadata %}
+  <div class="tabpane" data-pane="log">
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔑 Saved Login Metadata</div></div>
+      <div class="alert alert-warn"><span>🔒</span>
+        <div><b>Passwords are never extracted or decrypted by this tool.</b> Only the site,
+        username and usage metadata are shown, which is what a lawful educational examination
+        would document.</div></div>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Site</th><th>Username</th><th>Created</th><th>Times used</th><th>Password</th></tr></thead>
+        <tbody>
+        {% for l in result.logins_metadata %}
+        <tr><td class="t-mono xs" style="max-width:250px;word-break:break-all">{{ l.site }}</td>
+            <td class="small">{{ l.username }}</td>
+            <td class="dim xs">{{ l.created }}</td>
+            <td class="mono">{{ l.times_used }}</td>
+            <td class="dim xs">{{ l.password }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="alert alert-info mt"><span>💡</span>
+        <div>Infostealer malware targets exactly this store. If a machine is compromised, treat
+        every saved credential as stolen and reset them from a clean device.</div></div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endif %}
+{% else %}
+
+<div class="grid g2">
+  <div class="card">
+    <div class="card-head"><div class="card-title">🔍 What Browser Forensics Reveals</div></div>
+    {% for icon, t, d in [
+      ('🕐','History & visit counts','What was viewed, how often, and whether the address was typed (intent) or clicked (lured).'),
+      ('⬇️','Downloads','The file, its source URL and the exact timestamp — usually the moment of infection.'),
+      ('🔍','Search terms','What the user was looking for, which often reveals motive.'),
+      ('🍪','Cookies','Which sites the user was logged into, and whether sessions were secured.'),
+      ('🔑','Saved logins','Which accounts are exposed if the machine is compromised (metadata only).'),
+      ('🔖','Bookmarks','Long-term interests and frequently used services.') ] %}
+    <div class="finding info"><span class="f-icon">{{ icon }}</span>
+      <div class="f-body"><div class="f-title">{{ t }}</div><div class="f-detail">{{ d }}</div></div></div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">⏱️ Timestamp Formats (Exam Favourite)</div></div>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Browser</th><th>Epoch</th><th>Unit</th></tr></thead>
+      <tbody>
+        <tr><td>Chrome / Edge / Brave</td><td class="mono">1601-01-01</td><td>microseconds (WebKit)</td></tr>
+        <tr><td>Firefox</td><td class="mono">1970-01-01</td><td>microseconds</td></tr>
+        <tr><td>Safari</td><td class="mono">2001-01-01</td><td>seconds (Mac absolute)</td></tr>
+        <tr><td>Unix / Linux</td><td class="mono">1970-01-01</td><td>seconds</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="alert alert-warn mt"><span>⚖️</span>
+      <div><b>Legal note.</b> Only examine devices you own or are formally authorised to examine.
+      Unauthorised access to someone else's data is a criminal offence under the IT Act in India
+      and equivalent laws elsewhere.</div></div>
+    <div class="alert alert-info"><span>🧪</span>
+      <div><b>No artefact handy?</b> Export your own Chrome history to CSV with an extension, or
+      create a small CSV with <code>url,title,visit count,date</code> columns and upload that.</div></div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

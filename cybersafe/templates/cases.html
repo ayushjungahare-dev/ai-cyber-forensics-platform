@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty_state with context %}
+{% block title %}Cases — {{ APP_NAME }}{% endblock %}
+{% block page_title %}📁 Case Management{% endblock %}
+{% block page_sub %}Organise investigations, evidence and chain of custody{% endblock %}
+
+{% block content %}
+
+<div class="grid g5 mb">
+  <div class="stat"><div class="stat-i">📁</div><div class="stat-v">{{ stats.cases_total }}</div><div class="stat-l">Total Cases</div></div>
+  <div class="stat"><div class="stat-i">🔓</div><div class="stat-v">{{ stats.cases_open }}</div><div class="stat-l">Open</div></div>
+  <div class="stat"><div class="stat-i">⚙️</div><div class="stat-v">{{ stats.cases_progress }}</div><div class="stat-l">In Progress</div></div>
+  <div class="stat good"><div class="stat-i">✅</div><div class="stat-v">{{ stats.cases_closed }}</div><div class="stat-l">Closed</div></div>
+  <div class="stat"><div class="stat-i">🗂️</div><div class="stat-v">{{ stats.evidence_total }}</div><div class="stat-l">Evidence Items</div></div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">➕ Open a New Case</div></div>
+  <form method="post" action="{{ url_for('case_new') }}">
+    <div class="row">
+      <div class="field" style="flex:2">
+        <label>Case title *</label>
+        <input type="text" name="title" required placeholder="e.g. Phishing email leading to account takeover">
+      </div>
+      <div class="field">
+        <label>Incident type</label>
+        <select name="incident_type">
+          {% for t in incident_types %}<option>{{ t }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Priority</label>
+        <select name="priority">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Lead investigator</label>
+        <input type="text" name="investigator" placeholder="Your name">
+      </div>
+    </div>
+    <div class="field">
+      <label>Description / initial report</label>
+      <textarea name="description" rows="3" placeholder="What happened, who reported it, when it was noticed, what the impact is…"></textarea>
+    </div>
+    <button type="submit" class="btn">Create Case</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <div class="card-title">📋 All Cases</div>
+    <form method="get" class="flex">
+      <input type="search" name="q" value="{{ q }}" placeholder="Search cases…" style="width:200px">
+      <select name="status" onchange="this.form.submit()" style="width:auto">
+        <option value="all" {{ 'selected' if status=='all' }}>All statuses</option>
+        <option value="open" {{ 'selected' if status=='open' }}>Open</option>
+        <option value="in_progress" {{ 'selected' if status=='in_progress' }}>In progress</option>
+        <option value="closed" {{ 'selected' if status=='closed' }}>Closed</option>
+      </select>
+      <button class="btn btn-ghost btn-sm">Filter</button>
+    </form>
+  </div>
+
+  {% if cases %}
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>Case No.</th><th>Title</th><th>Type</th><th>Priority</th><th>Status</th>
+      <th>Evidence</th><th>Investigator</th><th>Opened</th><th></th></tr></thead>
+    <tbody>
+    {% for c in cases %}
+    <tr>
+      <td class="t-mono nowrap"><a href="{{ url_for('case_detail', case_id=c.id) }}"><b>{{ c.case_number }}</b></a></td>
+      <td style="max-width:280px">{{ c.title }}</td>
+      <td class="small nowrap">{{ c.incident_type or '—' }}</td>
+      <td>{{ badge(c.priority if c.priority in ['critical','high','medium','low'] else 'info') }}</td>
+      <td>{{ badge('low' if c.status=='closed' else 'medium' if c.status=='in_progress' else 'high', c.status|replace('_',' ')) }}</td>
+      <td class="mono nowrap">{{ c.evidence_count }} · {{ c.total_size }}</td>
+      <td class="small">{{ c.investigator or '—' }}</td>
+      <td class="dim xs nowrap">{{ c.created_at[:10] }}</td>
+      <td class="nowrap">
+        <a href="{{ url_for('case_detail', case_id=c.id) }}" class="btn btn-ghost btn-xs">Open</a>
+        <a href="{{ url_for('report_case', case_id=c.id) }}" target="_blank" class="btn btn-ghost btn-xs">📄</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    {{ empty_state('📁','No cases found','Create your first investigation case using the form above.') }}
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">📖 Why Case Management Matters</div></div>
+  <div class="grid g3">
+    <div class="finding info"><span class="f-icon">🔗</span>
+      <div class="f-body"><div class="f-title">Chain of custody</div>
+      <div class="f-detail">Every acquisition, access, verification and export is logged with
+      who, what and when. This is what makes evidence defensible.</div></div></div>
+    <div class="finding info"><span class="f-icon">🔒</span>
+      <div class="f-body"><div class="f-title">Integrity proof</div>
+      <div class="f-detail">Files are hashed at acquisition. Re-verify any time to prove nothing
+      has changed since collection.</div></div></div>
+    <div class="finding info"><span class="f-icon">📄</span>
+      <div class="f-body"><div class="f-title">One-click reporting</div>
+      <div class="f-detail">Generate a complete investigation report with evidence register,
+      custody log, timeline, IOCs and an AI executive summary.</div></div></div>
+  </div>
+</div>
+
+{% endblock %}

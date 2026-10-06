@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty_state with context %}
+{% block title %}Reports — {{ APP_NAME }}{% endblock %}
+{% block page_title %}📄 Investigation Reports{% endblock %}
+{% block page_sub %}Generate and download professional forensic reports{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="card-head"><div class="card-title">📝 Generate a Case Report</div></div>
+  {% if cases %}
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>Case</th><th>Title</th><th>Status</th><th>Evidence</th><th>Generate</th></tr></thead>
+    <tbody>
+    {% for c in cases %}
+    <tr>
+      <td class="t-mono nowrap"><b>{{ c.case_number }}</b></td>
+      <td>{{ c.title }}</td>
+      <td>{{ badge('low' if c.status=='closed' else 'medium' if c.status=='in_progress' else 'high', c.status|replace('_',' ')) }}</td>
+      <td class="mono nowrap">{{ c.evidence_count }} · {{ c.total_size }}</td>
+      <td class="nowrap">
+        <a href="{{ url_for('report_case', case_id=c.id) }}" target="_blank" class="btn btn-sm">📄 HTML</a>
+        <a href="{{ url_for('report_case_md', case_id=c.id) }}" class="btn btn-ghost btn-sm">MD</a>
+        <a href="{{ url_for('report_case', case_id=c.id, download=1) }}" class="btn btn-ghost btn-sm">⬇️</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    {{ empty_state('📁','No cases to report on','Create a case and add evidence first.') }}
+    <a href="{{ url_for('cases_page') }}" class="btn mt">Go to Cases</a>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">📚 Previously Generated Reports</div></div>
+  {% if reports %}
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>Title</th><th>Kind</th><th>Created</th><th>Size</th><th></th></tr></thead>
+    <tbody>
+    {% for r in reports %}
+    <tr>
+      <td>{{ r.title }}</td>
+      <td>{{ badge('info', r.kind) }}</td>
+      <td class="dim xs nowrap">{{ r.created_at }}</td>
+      <td class="mono">{{ r.size }}</td>
+      <td class="nowrap">
+        {% if r.exists %}
+        <a href="{{ url_for('report_view', rid=r.id) }}" target="_blank" class="btn btn-ghost btn-xs">View</a>
+        <a href="{{ url_for('report_view', rid=r.id, download=1) }}" class="btn btn-ghost btn-xs">⬇️</a>
+        {% else %}<span class="dim xs">file removed</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    {{ empty_state('📄','No reports generated yet') }}
+  {% endif %}
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <div class="card-head"><div class="card-title">📋 What a Case Report Contains</div></div>
+    <ol style="margin-left:20px;line-height:2">
+      <li><b>Case metadata</b> — number, type, priority, investigator, dates</li>
+      <li><b>AI executive summary</b> — a management-readable overview</li>
+      <li><b>Evidence register</b> — every item with acquisition hashes</li>
+      <li><b>Chain of custody</b> — the full audit trail</li>
+      <li><b>Analyses performed</b> — every scan with risk scores and verdicts</li>
+      <li><b>Indicators of compromise</b> — the complete IOC table</li>
+      <li><b>Investigation timeline</b> — chronological event list</li>
+      <li><b>Integrity statement</b> — hash verification results</li>
+      <li><b>Methodology &amp; limitations</b> — a defensible statement of how it was done</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">🖨️ Producing a PDF</div></div>
+    <div class="alert alert-info"><span>💡</span>
+      <div>Reports are generated as self-contained HTML with print styling built in. To make a PDF:
+      open the HTML report, press <b>Ctrl+P</b> (Cmd+P on Mac), and choose
+      <b>Save as PDF</b>. Page breaks and margins are already handled.</div></div>
+    <div class="alert alert-ok"><span>📦</span>
+      <div>HTML reports are fully self-contained — the CSS is embedded, so the file can be emailed
+      or archived and it will still render identically anywhere, with no internet access.</div></div>
+    <div class="alert alert-warn"><span>⚖️</span>
+      <div>These reports are produced by an educational platform. For court proceedings, findings
+      should be reproduced and corroborated by a certified forensic examiner using validated
+      tooling.</div></div>
+  </div>
+</div>
+
+{% endblock %}

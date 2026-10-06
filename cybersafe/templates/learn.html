@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, gauge, empty_state with context %}
+{% block title %}Learning Center — {{ APP_NAME }}{% endblock %}
+{% block page_title %}📚 Cyber Learning Center{% endblock %}
+{% block page_sub %}Quizzes, hands-on labs, phishing simulator and guided learning paths{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🎯 Your Progress</div></div>
+  <div class="flex" style="gap:28px;align-items:center">
+    {{ gauge(progress.overall_percent, 118) }}
+    <div style="flex:1;min-width:230px">
+      <div class="grid g3">
+        <div><div class="stat-v" style="font-size:22px">{{ progress.labs_completed|length }}/{{ progress.labs_total }}</div>
+          <div class="stat-l">Labs completed</div></div>
+        <div><div class="stat-v" style="font-size:22px">{{ progress.quizzes|length }}/{{ progress.quizzes_total }}</div>
+          <div class="stat-l">Quiz topics</div></div>
+        <div><div class="stat-v" style="font-size:22px">{{ progress.avg_score }}%</div>
+          <div class="stat-l">Average score</div></div>
+      </div>
+      {% if progress.badges %}
+      <div class="chips mt">
+        {% for b in progress.badges %}<span class="chip on" title="{{ b.desc }}">{{ b.icon }} {{ b.name }}</span>{% endfor %}
+      </div>
+      {% else %}
+      <div class="dim small mt">Complete a quiz or lab to start earning badges.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🛤️ Guided Learning Paths</div>
+    <span class="dim xs">Follow these in order for structured learning</span></div>
+  <div class="grid g3">
+    {% for p in paths %}
+    <div class="lab-card">
+      <div class="lab-i">{{ p.icon }}</div>
+      <div class="lab-t">{{ p.title }}</div>
+      <div class="lab-d">{{ p.description }}</div>
+      <div class="lab-m">{{ badge('info', p.level) }}{{ badge('info', p.duration) }}</div>
+      <ol style="margin:12px 0 0 18px;font-size:12px;color:var(--muted);line-height:1.75">
+        {% for s in p.steps %}<li>{{ s }}</li>{% endfor %}
+      </ol>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">📝 Knowledge Quizzes</div>
+    <span class="dim xs">6 questions each, with full explanations</span></div>
+  <div class="grid g3">
+    {% for key, label in topics.items() %}
+    {% set done = progress.quizzes|selectattr('topic','equalto',key)|list %}
+    <a href="{{ url_for('quiz_page', topic=key) }}" class="lab-card" style="text-decoration:none;color:inherit;position:relative">
+      {% if done %}<span class="badge-done">{{ '💯' if done[0].percent == 100 else '✅' }}</span>{% endif %}
+      <div class="lab-i">{% if key=='phishing' %}🎣{% elif key=='passwords' %}🔐{% elif key=='malware' %}🦠{% elif key=='forensics' %}🔍{% elif key=='incident_response' %}🚨{% else %}🌐{% endif %}</div>
+      <div class="lab-t">{{ label }}</div>
+      <div class="lab-d">
+        {% if done %}Best score: <b>{{ done[0].best }}/{{ done[0].total }}</b> ({{ done[0].percent }}%) · {{ done[0].attempts }} attempt(s)
+        {% else %}Not attempted yet — test your knowledge.{% endif %}
+      </div>
+      <div class="lab-m"><span class="btn btn-ghost btn-xs">{{ 'Retake quiz' if done else 'Start quiz' }}</span></div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🎣 Phishing Simulator</div></div>
+  <div class="grid g2">
+    <div>
+      <p class="muted mb">Can you tell a real message from a phishing attempt? Review
+      {{ sims }} realistic emails — some genuine, some malicious — and classify each one.
+      You will see every clue you missed afterwards.</p>
+      <a href="{{ url_for('simulator_page') }}" class="btn">Start the Simulator →</a>
+    </div>
+    <div class="alert alert-info"><span>📊</span>
+      <div>Real-world data consistently shows that around one in three untrained employees clicks a
+      phishing link. Training reliably drops that below five percent. Practising on realistic
+      samples is the single most effective security investment.</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🔬 Hands-On Labs</div>
+    <span class="dim xs">{{ labs|length }} guided exercises using the platform's own tools</span></div>
+  <div class="grid g3">
+    {% for l in labs %}
+    <a href="{{ url_for('lab_page', lab_id=l.id) }}" class="lab-card" style="text-decoration:none;color:inherit;position:relative">
+      {% if l.id in progress.labs_completed %}<span class="badge-done">✅</span>{% endif %}
+      <div class="lab-i">{{ l.icon }}</div>
+      <div class="lab-t">{{ l.title }}</div>
+      <div class="lab-d">{{ l.objective }}</div>
+      <div class="lab-m">
+        {{ badge('low' if l.level=='Beginner' else 'medium' if l.level=='Intermediate' else 'high', l.level) }}
+        {{ badge('info', l.duration) }}
+      </div>
+      <div class="dim xs mt-s">Uses: {{ l.module }}</div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">🤖 AI Study Buddy</div></div>
+  <div class="grid g2">
+    <div>
+      <div class="field">
+        <label>Explain any cybersecurity topic in plain language</label>
+        <input type="text" id="topicInput" placeholder="e.g. lateral movement, DNS tunnelling, WPA3, Kerberoasting">
+      </div>
+      <div class="row">
+        <div class="field"><label>Level</label>
+          <select id="levelSel">
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select></div>
+      </div>
+      <button class="btn" onclick="explain()" {{ 'disabled' if not ollama_online }}>Explain This Topic</button>
+      {% if not ollama_online %}<div class="dim xs mt-s">Requires Ollama to be running.</div>{% endif %}
+    </div>
+    <div>
+      <div class="field">
+        <label>Generate a fresh AI quiz on any topic</label>
+        <input type="text" id="quizTopic" placeholder="e.g. ransomware, network forensics, OWASP Top 10">
+      </div>
+      <button class="btn btn-ghost" onclick="genQuiz()" {{ 'disabled' if not ollama_online }}>Generate 5 Questions</button>
+    </div>
+  </div>
+  <div id="aiOut" class="mt"></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function explain(){
+  const topic = document.getElementById('topicInput').value.trim();
+  if (!topic) return;
+  const out = document.getElementById('aiOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Generating explanation…</div></div>';
+  const r = await postJSON('/api/learn/explain',
+    {topic: topic, level: document.getElementById('levelSel').value});
+  if (!r.available) { out.innerHTML = '<div class="alert alert-err"><span>⚠️</span><div>AI unavailable. Start Ollama and try again.</div></div>'; return; }
+  out.innerHTML = '<div class="ai-box"><div class="ai-head">🤖 ' + topic + '</div><div class="ai-body">' +
+    mdToHtml(r.text) + '</div><div class="ai-meta">Generated locally by <code>' + (r.model||'') + '</code></div></div>';
+}
+
+async function genQuiz(){
+  const topic = document.getElementById('quizTopic').value.trim();
+  if (!topic) return;
+  const out = document.getElementById('aiOut');
+  out.innerHTML = '<div class="alert alert-info"><span class="spin"></span><div>Writing questions…</div></div>';
+  const r = await postJSON('/api/learn/generate-quiz', {topic: topic, n: 5, difficulty: 'beginner'});
+  if (!r.available) { out.innerHTML = '<div class="alert alert-err"><span>⚠️</span><div>Could not generate a quiz. Try again or rephrase the topic.</div></div>'; return; }
+  let html = '<div class="card"><div class="card-head"><div class="card-title">🤖 AI Quiz: ' + topic + '</div></div>';
+  r.questions.forEach((q, i) => {
+    html += '<div class="qcard"><div class="qtext">' + (i+1) + '. ' + q.q + '</div>';
+    q.options.forEach((o, j) => {
+      html += '<div class="qopt" onclick="revealQ(this,' + (j === q.answer) + ')">' +
+              String.fromCharCode(65+j) + '. ' + o + '</div>';
+    });
+    html += '<div class="dim small mt-s hidden" data-why><b>Answer:</b> ' +
+            String.fromCharCode(65+q.answer) + '. ' + q.options[q.answer] + '<br>' + (q.why||'') + '</div></div>';
+  });
+  html += '</div>';
+  out.innerHTML = html;
+}
+
+function revealQ(el, correct){
+  const card = el.closest('.qcard');
+  card.querySelectorAll('.qopt').forEach(o => o.style.pointerEvents = 'none');
+  el.classList.add(correct ? 'right' : 'wrong');
+  card.querySelector('[data-why]').classList.remove('hidden');
+}
+</script>
+{% endblock %}

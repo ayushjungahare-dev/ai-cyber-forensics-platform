@@ -1,0 +1,369 @@
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:05:23 AM
+Event ID:      4624
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account was successfully logged on.
+    Account Name: priya.n
+    Logon Type: 2
+    Source Network Address: -
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:05:35 AM
+Event ID:      4624
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account was successfully logged on.
+    Account Name: priya.n
+    Logon Type: 2
+    Source Network Address: -
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:06:03 AM
+Event ID:      4624
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account was successfully logged on.
+    Account Name: priya.n
+    Logon Type: 2
+    Source Network Address: -
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:06:47 AM
+Event ID:      4624
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account was successfully logged on.
+    Account Name: priya.n
+    Logon Type: 2
+    Source Network Address: -
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:06:53 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:07:00 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:07:37 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:07:46 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:08:12 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:08:52 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:08:58 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:09:33 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:09:49 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:09:54 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:10:02 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:10:32 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:11:01 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:11:08 AM
+Event ID:      4625
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account failed to log on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Failure Reason: Unknown user name or bad password
+    Status: 0xC000006D
+    Sub Status: 0xC000006A
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:11:26 AM
+Event ID:      4624
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   An account was successfully logged on.
+    Account Name: administrator
+    Logon Type: 10
+    Source Network Address: 203.0.113.99
+    Logon Process: User32
+    Authentication Package: Negotiate
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:11:34 AM
+Event ID:      4672
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   Special privileges assigned to new logon.
+    Account Name: administrator
+    Privileges: SeDebugPrivilege, SeTakeOwnershipPrivilege
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:12:12 AM
+Event ID:      4720
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   A user account was created.
+    Account Name: svc_backup01
+    Subject Account: administrator
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:12:42 AM
+Event ID:      4732
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   A member was added to a security-enabled local group.
+    Group Name: Administrators
+    Member: svc_backup01
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:12:48 AM
+Event ID:      7045
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   A new service was installed in the system.
+    Service Name: WinUpdateHelper
+    Service File Name: C:\Windows\Temp\svchost32.exe
+    Start Type: auto start
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:13:27 AM
+Event ID:      4698
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   A scheduled task was created.
+    Task Name: \Microsoft\Windows\UpdateOrchestrator\SyncHelper
+    Subject Account: administrator
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:13:37 AM
+Event ID:      4104
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   Creating Scriptblock text.
+    ScriptBlock: powershell -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkA
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:13:54 AM
+Event ID:      5001
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   Real-time protection was disabled.
+    Product: Windows Defender Antivirus
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:14:37 AM
+Event ID:      1116
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   Windows Defender Antivirus has detected malware.
+    Threat Name: Ransom:Win32/Generic
+    Path: C:\Users\priya.n\Downloads\Invoice_March.pdf.exe
+
+Log Name:      Security
+Source:        Microsoft-Windows-Security-Auditing
+Date:          03/15/2026 01:15:20 AM
+Event ID:      1102
+Task Category: Logon
+Level:         Information
+Computer:      WIN-FINANCE-01.corp.local
+Description:   The audit log was cleared.
+    Subject Account: administrator
+    Subject Domain: CORP

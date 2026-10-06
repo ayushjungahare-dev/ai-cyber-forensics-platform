@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}AI Cyber Assistant — {{ APP_NAME }}{% endblock %}
+{% block page_title %}🤖 AI Cyber Assistant{% endblock %}
+{% block page_sub %}Ask anything about cybersecurity, forensics or a suspicious message{% endblock %}
+{% block topbar_extra %}
+<button class="btn btn-ghost btn-sm" onclick="clearChat()">🗑️ New conversation</button>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid" style="grid-template-columns:1fr 290px;gap:16px">
+
+  <div class="card" style="margin-bottom:0">
+    <div class="chat">
+      <div class="chat-body" id="chatBody">
+        {% if history %}
+          {% for m in history %}
+          <div class="msg {{ 'user' if m.role=='user' else 'bot' }}">
+            <div class="msg-av">{{ '👤' if m.role=='user' else '🤖' }}</div>
+            <div class="msg-c" {% if m.role=='assistant' %}data-md="{{ m.content }}"{% endif %}>{% if m.role=='user' %}{{ m.content }}{% endif %}</div>
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="msg bot">
+          <div class="msg-av">🤖</div>
+          <div class="msg-c">
+            <p><strong>Hello! I'm CyberSafe AI</strong> — your local cybersecurity and digital
+            forensics assistant.</p>
+            <p>I run entirely on your machine through Ollama. Nothing you type here is sent to the
+            internet, so you can safely paste suspicious emails, log snippets or case details.</p>
+            <p>I can help you:</p>
+            <ul>
+              <li>Judge whether an email, SMS or link is a scam</li>
+              <li>Explain Windows Event IDs and log entries</li>
+              <li>Walk through malware removal and incident response</li>
+              <li>Teach forensics concepts like chain of custody and order of volatility</li>
+              <li>Tell you exactly how to report cybercrime in India</li>
+            </ul>
+            <p>Try one of the suggestions on the right, or just ask.</p>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="chat-in">
+        <textarea id="chatInput" rows="1" placeholder="Ask a question, or paste a suspicious message…"></textarea>
+        <button class="btn" id="sendBtn" onclick="send()">Send</button>
+      </div>
+      <div class="dim xs mt-s" id="statusLine">
+        {% if ollama_online %}Connected to local model <b>{{ ollama_model }}</b> · responses stream live · Shift+Enter for a new line
+        {% else %}Ollama offline — I will answer from the built-in offline knowledge base instead{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title" style="font-size:13.5px">💡 Quick Questions</div></div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        {% for q in quick %}
+        <button class="chip" style="text-align:left;border-radius:8px;padding:8px 11px"
+                onclick="ask(this.textContent.trim())">{{ q }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title" style="font-size:13.5px">📚 Knowledge Base</div></div>
+      <div class="dim xs mb">{{ kb|length }} offline articles ground the AI's answers — and work
+      even when Ollama is off.</div>
+      <div style="display:flex;flex-direction:column;gap:4px;max-height:280px;overflow-y:auto">
+        {% for d in kb %}
+        <button class="chip" style="text-align:left;border-radius:8px;padding:6px 10px;font-size:11.5px"
+                onclick="ask('Explain: {{ d.title }}')">{{ d.title }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title" style="font-size:13.5px">🔒 Privacy</div></div>
+      <div class="small muted">Every message stays on this computer. The model runs locally through
+      Ollama at <code>{{ ollama_host }}</code>. No API keys, no cloud, no logging to any server.</div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const body = document.getElementById('chatBody');
+const input = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+let SESSION = {{ sid|tojson }};
+let busy = false;
+
+document.querySelectorAll('[data-md]').forEach(el => {
+  el.innerHTML = mdToHtml(el.dataset.md);
+});
+
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 170) + 'px';
+});
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+
+function addMsg(role, content, isMd) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + (role === 'user' ? 'user' : 'bot');
+  d.innerHTML = '<div class="msg-av">' + (role === 'user' ? '👤' : '🤖') + '</div>' +
+                '<div class="msg-c"></div>';
+  const c = d.querySelector('.msg-c');
+  if (isMd) c.innerHTML = mdToHtml(content); else c.textContent = content;
+  body.appendChild(d);
+  body.scrollTop = body.scrollHeight;
+  return c;
+}
+
+function ask(q) { input.value = q; send(); }
+
+async function send() {
+  const q = input.value.trim();
+  if (!q || busy) return;
+  busy = true;
+  sendBtn.disabled = true;
+  sendBtn.innerHTML = '<span class="spin"></span>';
+  input.value = '';
+  input.style.height = 'auto';
+
+  addMsg('user', q, false);
+  const out = addMsg('bot', '', false);
+  out.innerHTML = '<span class="spin"></span> <span class="dim">Thinking…</span>';
+
+  let full = '';
+  try {
+    const resp = await fetch('/api/assistant/stream', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({question: q, session_id: SESSION})
+    });
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream: true});
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const p of parts) {
+        const line = p.trim();
+        if (!line.startsWith('data:')) continue;
+        let obj;
+        try { obj = JSON.parse(line.slice(5).trim()); } catch (e) { continue; }
+        if (obj.chunk) {
+          full += obj.chunk;
+          out.innerHTML = mdToHtml(full);
+          body.scrollTop = body.scrollHeight;
+        }
+        if (obj.done) {
+          out.innerHTML = mdToHtml(full);
+          if (obj.sources && obj.sources.length) {
+            const s = document.createElement('div');
+            s.className = 'dim xs';
+            s.style.marginTop = '9px';
+            s.style.paddingTop = '7px';
+            s.style.borderTop = '1px solid rgba(255,255,255,.08)';
+            s.textContent = '📚 Grounded in: ' + obj.sources.map(x => x.title).join(' · ');
+            out.appendChild(s);
+          }
+        }
+      }
+    }
+    if (!full) out.innerHTML = '<span class="dim">No response received. Is Ollama running?</span>';
+  } catch (e) {
+    out.innerHTML = '<span class="crit-t">Connection error: ' + e.message + '</span>';
+  }
+  busy = false;
+  sendBtn.disabled = false;
+  sendBtn.textContent = 'Send';
+  body.scrollTop = body.scrollHeight;
+  input.focus();
+}
+
+async function clearChat() {
+  if (!confirm('Start a new conversation? The current one will be cleared.')) return;
+  const r = await postJSON('/api/assistant/clear', {});
+  SESSION = r.session_id;
+  location.reload();
+}
+
+body.scrollTop = body.scrollHeight;
+input.focus();
+</script>
+{% endblock %}

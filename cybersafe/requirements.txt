@@ -1,0 +1,27 @@
+# AI Cyber Safety & Digital Forensics Platform
+# ---------------------------------------------
+# Deliberately minimal. Everything else uses the Python standard library so the
+# project stays easy to install, easy to audit, and free of supply-chain risk.
+#
+#   pip install -r requirements.txt
+#
+# NOTE: There are NO API-key-based SDKs here. All AI runs locally via Ollama,
+# which is talked to over plain HTTP using urllib from the standard library.
+
+Flask>=3.0.0
+
+# ------------------------------------------------------------------ optional
+# python-dotenv lets you keep settings in a .env file instead of the shell.
+python-dotenv>=1.0.0
+
+# ------------------------------------------------------------------ NOT required
+# The following are intentionally NOT dependencies — equivalent functionality is
+# implemented in pure Python inside this project:
+#
+#   pefile      -> core PE parsing            (modules/malware.py: parse_pe)
+#   yara-python -> signature matching         (modules/malware.py: SIGNATURES)
+#   Pillow      -> EXIF reading/stripping     (modules/toolkit.py: read_exif)
+#   volatility3 -> memory analysis            (modules/memory_forensics.py)
+#   requests    -> HTTP to Ollama             (core/ollama_client.py: urllib)
+#   scikit-learn-> TF-IDF retrieval           (modules/assistant.py: retrieve)
+#   reportlab   -> PDF output                 (print the HTML report to PDF)

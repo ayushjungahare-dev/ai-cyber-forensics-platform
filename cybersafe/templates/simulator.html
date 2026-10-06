@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, gauge with context %}
+{% block title %}Phishing Simulator — {{ APP_NAME }}{% endblock %}
+{% block page_title %}🎣 Phishing Simulator{% endblock %}
+{% block page_sub %}Can you tell the real messages from the fakes?{% endblock %}
+{% block topbar_extra %}
+<a href="{{ url_for('learn_page') }}" class="btn btn-ghost btn-sm">← Learning Center</a>
+{% endblock %}
+
+{% block content %}
+
+{% if result %}
+{% set band = 'low' if result.percent>=85 else 'medium' if result.percent>=60 else 'high' if result.percent>=40 else 'critical' %}
+<div class="risk {{ band }}">
+  {{ gauge(result.percent, 112) }}
+  <div class="risk-info">
+    <div class="risk-verdict">{{ result.score }} / {{ result.total }} correct</div>
+    <div class="risk-desc">{{ result.grade }}. Review every clue below — especially for the ones you
+    got wrong. Real attackers rely on exactly these details slipping past you.</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">📋 Your Answers Reviewed</div></div>
+  {% for d in result.detail %}
+  <div class="qcard">
+    <div class="qtext" style="font-size:14px">
+      {{ loop.index }}. {{ d.subject }}
+      {{ badge('low','correct') if d.correct else badge('critical','incorrect') }}
+    </div>
+    <div class="flex mb">
+      <span class="small">You said: <b>{{ d.your_answer }}</b></span>
+      <span class="small">Actually: <b class="{{ 'crit-t' if d.correct_answer=='phishing' else 'low-t' }}">{{ d.correct_answer }}</b></span>
+    </div>
+    <div class="card-title" style="font-size:12.5px">Clues that give it away:</div>
+    <ul style="margin:6px 0 0 20px">
+      {% for c in d.clues %}<li style="font-size:13px;margin:3px 0">{{ c }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="flex">
+  <a href="{{ url_for('simulator_page') }}" class="btn">🔄 Try Again</a>
+  <a href="{{ url_for('phishing_page') }}" class="btn btn-ghost">🛡️ Analyse a real message</a>
+  <a href="{{ url_for('learn_page') }}" class="btn btn-ghost">← Learning Center</a>
+</div>
+
+{% else %}
+
+<div class="alert alert-info">
+  <span>🎯</span>
+  <div><b>How this works.</b> Below are {{ emails|length }} realistic messages. Some are genuine
+  notifications you might actually receive; others are phishing. Classify each one, then submit to
+  see every clue you spotted — and missed.</div>
+</div>
+
+<form method="post">
+  {% for e in emails %}
+  <div class="sim">
+    <div class="sim-h">
+      <div class="flex-between">
+        <div>
+          <div style="font-weight:700;font-size:14px">{{ e.subject }}</div>
+          <div class="dim xs mt-s">From: <b>{{ e.from_name }}</b> &lt;{{ e.from_addr }}&gt;</div>
+        </div>
+        <span class="dim xs">Message {{ loop.index }} of {{ emails|length }}</span>
+      </div>
+    </div>
+    <div class="sim-b">{{ e.body }}</div>
+    <div class="sim-a">
+      <span class="small muted">Your verdict:</span>
+      <label class="check">
+        <input type="radio" name="{{ e.id }}" value="phishing" required> <span>🎣 Phishing</span>
+      </label>
+      <label class="check">
+        <input type="radio" name="{{ e.id }}" value="legitimate"> <span>✅ Legitimate</span>
+      </label>
+    </div>
+  </div>
+  {% endfor %}
+  <button type="submit" class="btn">Submit My Answers</button>
+</form>
+
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,13 @@
+# Sample credential dump for the Breach Checker import feature.
+# SYNTHETIC DATA ONLY - none of these are real accounts or real passwords.
+# Demonstrates the three supported line formats.
+priya.nair@corp.local:Summer2026!
+rahul.sharma@corp.local;Welcome@123
+amit.kumar@corp.local,hunter2
+sneha.patel@corp.local:india@1947
+vikram.rao@corp.local
+admin@corp.local:P@ssw0rd
+hr.payroll@corp.local:Hr#2026pay
+finance@corp.local:M0ney$2026
+support@corp.local:support123
+devops@corp.local:Dev0ps!2026

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty_state with context %}
+{% block title %}Scan History — {{ APP_NAME }}{% endblock %}
+{% block page_title %}🕐 Scan History{% endblock %}
+{% block page_sub %}Every analysis run on this platform{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="card-head">
+    <div class="card-title">📋 All Analyses</div>
+    <div class="flex">
+      <form method="get" class="flex">
+        <select name="module" onchange="this.form.submit()" style="width:auto">
+          <option value="all" {{ 'selected' if module=='all' }}>All modules</option>
+          {% for m in modules %}
+          <option value="{{ m.module }}" {{ 'selected' if module==m.module }}>{{ m.module|replace('-',' ')|title }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      <form method="post" action="{{ url_for('history_clear') }}"
+            onsubmit="return confirm('Delete the entire scan history? Cases and evidence are not affected.')">
+        <button class="btn btn-ghost btn-sm">🗑️ Clear history</button>
+      </form>
+    </div>
+  </div>
+
+  {% if scans %}
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>When</th><th>Module</th><th>Target</th><th>Verdict</th><th>Risk</th>
+      <th>AI</th><th>Time</th><th>Case</th><th></th></tr></thead>
+    <tbody>
+    {% for s in scans %}
+    <tr>
+      <td class="dim xs nowrap">{{ s.created_at }}</td>
+      <td><b>{{ s.module|replace('-',' ')|title }}</b></td>
+      <td class="t-mono trunc" style="max-width:280px" title="{{ s.target }}">{{ s.target[:80] }}</td>
+      <td class="small">{{ s.verdict }}</td>
+      <td>{{ badge(s.risk_score|band, s.risk_score|string) }}</td>
+      <td class="tc">{{ '🤖' if s.ai_used else '—' }}</td>
+      <td class="mono xs">{{ s.duration_ms }}ms</td>
+      <td class="mono xs">{{ s.case_id or '—' }}</td>
+      <td class="nowrap">
+        <a href="{{ url_for('history_detail', sid=s.id) }}" class="btn btn-ghost btn-xs">Details</a>
+        <a href="{{ url_for('report_scan', scan_id=s.id) }}" target="_blank" class="btn btn-ghost btn-xs">📄</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    {{ empty_state('🕐','No analyses recorded','Run a scan from any module to build your history.') }}
+  {% endif %}
+</div>
+
+{% endblock %}

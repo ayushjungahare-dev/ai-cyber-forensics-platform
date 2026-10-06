@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Error {{ code }} — {{ APP_NAME }}{% endblock %}
+{% block page_title %}Error {{ code }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="empty">
+    <div class="empty-i">{% if code == 404 %}🔍{% elif code == 413 %}📦{% else %}⚠️{% endif %}</div>
+    <div class="empty-t" style="font-size:26px">{{ code }}</div>
+    <div class="empty-s" style="max-width:560px;margin:12px auto">{{ msg }}</div>
+    <a href="{{ url_for('dashboard') }}" class="btn mt">← Back to Dashboard</a>
+  </div>
+</div>
+{% endblock %}

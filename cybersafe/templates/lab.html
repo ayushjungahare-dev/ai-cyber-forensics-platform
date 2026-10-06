@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge with context %}
+{% block title %}{{ lab.title }} — {{ APP_NAME }}{% endblock %}
+{% block page_title %}{{ lab.icon }} {{ lab.title }}{% endblock %}
+{% block page_sub %}{{ lab.level }} · {{ lab.duration }} · Uses: {{ lab.module }}{% endblock %}
+{% block topbar_extra %}
+<a href="{{ url_for('learn_page') }}" class="btn btn-ghost btn-sm">← Learning Center</a>
+{% endblock %}
+
+{% block content %}
+
+{% if done %}
+<div class="alert alert-ok"><span>✅</span><div><b>You have completed this lab.</b> Feel free to
+work through it again — repetition builds the instinct that catches real attacks.</div></div>
+{% endif %}
+
+<div class="grid g2">
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">🎯 Objective</div>
+        <div class="flex">{{ badge('low' if lab.level=='Beginner' else 'medium' if lab.level=='Intermediate' else 'high', lab.level) }}
+        {{ badge('info', lab.duration) }}</div></div>
+      <p>{{ lab.objective }}</p>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">📋 Scenario</div></div>
+      <div class="pre" style="white-space:pre-wrap">{{ lab.scenario }}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">👣 Steps</div></div>
+      <ol style="margin-left:20px;line-height:1.95">
+        {% for s in lab.steps %}
+        <li style="margin-bottom:9px;font-size:13.6px">
+          <label class="check" style="display:inline-flex;align-items:flex-start">
+            <input type="checkbox" class="stepChk" style="margin-top:4px">
+            <span>{{ s }}</span>
+          </label>
+        </li>
+        {% endfor %}
+      </ol>
+      <div class="mt">
+        <div class="flex-between xs mb"><span>Progress</span><span id="stepPct" class="mono">0%</span></div>
+        <div class="bar"><div class="bar-f low" id="stepBar" style="width:0"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">❓ Check Your Understanding</div></div>
+      {% for q in lab.questions %}
+      <div class="qcard" style="background:var(--bg2)">
+        <div class="qtext" style="font-size:13.8px">{{ loop.index }}. {{ q.q }}</div>
+        <textarea rows="2" placeholder="Write your answer here…" style="font-family:inherit;font-size:13.5px"></textarea>
+        <div class="flex mt-s">
+          <button class="btn btn-ghost btn-xs" onclick="toggle(this,'hint')">💡 Hint</button>
+          <button class="btn btn-ghost btn-xs" onclick="toggle(this,'ans')">✅ Show answer</button>
+        </div>
+        <div class="alert alert-warn mt-s hidden" data-hint><span>💡</span><div>{{ q.hint }}</div></div>
+        <div class="alert alert-ok mt-s hidden" data-ans><span>✅</span><div>{{ q.a }}</div></div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">🎓 Key Takeaway</div></div>
+      <div class="alert alert-info"><span>⭐</span><div>{{ lab.takeaway }}</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">✅ Finish</div></div>
+      <form method="post" action="{{ url_for('lab_complete', lab_id=lab.id) }}">
+        <button type="submit" class="btn btn-ok btn-block">
+          {{ 'Mark as completed again' if done else 'Mark Lab as Completed' }}</button>
+      </form>
+      <div class="dim xs mt-s">This records your progress on the Learning Center dashboard.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔧 Open the Tool</div></div>
+      <div class="btn-group">
+        <a href="{{ url_for('phishing_page') }}" class="btn btn-ghost btn-sm">🛡️ Phishing</a>
+        <a href="{{ url_for('password_page') }}" class="btn btn-ghost btn-sm">🔐 Password</a>
+        <a href="{{ url_for('malware_page') }}" class="btn btn-ghost btn-sm">🦠 Malware</a>
+        <a href="{{ url_for('cases_page') }}" class="btn btn-ghost btn-sm">📁 Cases</a>
+        <a href="{{ url_for('logs_page') }}" class="btn btn-ghost btn-sm">📜 Logs</a>
+        <a href="{{ url_for('browser_page') }}" class="btn btn-ghost btn-sm">🌐 Browser</a>
+        <a href="{{ url_for('memory_page') }}" class="btn btn-ghost btn-sm">🧠 Memory</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggle(btn, which){
+  const card = btn.closest('.qcard');
+  const el = card.querySelector(which === 'hint' ? '[data-hint]' : '[data-ans]');
+  el.classList.toggle('hidden');
+}
+const chks = document.querySelectorAll('.stepChk');
+chks.forEach(c => c.addEventListener('change', () => {
+  const done = [...chks].filter(x => x.checked).length;
+  const pct = Math.round(done / chks.length * 100);
+  document.getElementById('stepBar').style.width = pct + '%';
+  document.getElementById('stepPct').textContent = pct + '%';
+}));
+</script>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, gauge with context %}
+{% block title %}{{ label }} Quiz — {{ APP_NAME }}{% endblock %}
+{% block page_title %}📝 {{ label }}{% endblock %}
+{% block page_sub %}{{ 'Your results' if result else 'Answer all questions, then submit' }}{% endblock %}
+{% block topbar_extra %}
+<a href="{{ url_for('learn_page') }}" class="btn btn-ghost btn-sm">← Learning Center</a>
+{% endblock %}
+
+{% block content %}
+
+{% if result %}
+{% set band = 'low' if result.percent>=85 else 'medium' if result.percent>=60 else 'high' if result.percent>=40 else 'critical' %}
+<div class="risk {{ band }}">
+  {{ gauge(result.percent, 112) }}
+  <div class="risk-info">
+    <div class="risk-verdict">{{ result.score }} / {{ result.total }} — {{ result.grade }}</div>
+    <div class="risk-desc">You scored <b>{{ result.percent }}%</b> on {{ result.topic_label }}.
+      {% if result.percent == 100 %}Perfect score — outstanding.
+      {% elif result.percent >= 70 %}Solid understanding. Review the explanations below to close the gaps.
+      {% else %}Read every explanation carefully, then retake the quiz.{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div class="card-title">📋 Answer Review</div></div>
+  {% for d in result.detail %}
+  <div class="qcard">
+    <div class="qtext">{{ loop.index }}. {{ d.q }} {{ badge('low','correct') if d.correct else badge('critical','incorrect') }}</div>
+    <div class="qopt {{ 'right' if d.correct else 'wrong' }}" style="pointer-events:none">
+      <span><b>Your answer:</b> {{ d.your_answer }}</span>
+    </div>
+    {% if not d.correct %}
+    <div class="qopt right" style="pointer-events:none">
+      <span><b>Correct answer:</b> {{ d.correct_answer }}</span>
+    </div>
+    {% endif %}
+    <div class="alert alert-info mt-s"><span>💡</span><div>{{ d.why }}</div></div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="flex">
+  <a href="{{ url_for('quiz_page', topic=topic) }}" class="btn">🔄 Retake Quiz</a>
+  <a href="{{ url_for('learn_page') }}" class="btn btn-ghost">← Back to Learning Center</a>
+</div>
+
+{% else %}
+
+<form method="post">
+  <input type="hidden" name="picks" value="{{ picks }}">
+  {% for q in questions %}
+  <div class="qcard">
+    <div class="qtext">{{ loop.index }}. {{ q.q }}</div>
+    {% for o in q.options %}
+    <label class="qopt">
+      <input type="radio" name="a{{ q.index }}" value="{{ loop.index0 }}" required>
+      <span>{{ 'ABCD'[loop.index0] }}. {{ o }}</span>
+    </label>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  <button type="submit" class="btn">Submit Answers</button>
+  <a href="{{ url_for('learn_page') }}" class="btn btn-ghost">Cancel</a>
+</form>
+
+{% endif %}
+
+{% endblock %}
