@@ -1,7 +1,3 @@
-__pycache__/
-*.py[cod]
-.venv/
-venv/
 data/cybersafe.db
 data/cybersafe.db-wal
 data/cybersafe.db-shm
@@ -11,3 +7,32 @@ data/uploads/*
 !data/**/.gitkeep
 .env
 .DS_Store
+
+
+# Python Bytecode & Cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Database files & Local Logs
+*.db
+*.sqlite3
+*.log
+
+# Environment variables / Secrets (API Keys)
+.env
+
+# VS Code & IDE settings
+.vscode/
+.idea/
+
+# Windows / System temp files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
